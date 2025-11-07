@@ -1,0 +1,93 @@
+import mysql.connector
+from mysql.connector import Error
+
+class AlumnoRepository:
+    def __init__(self):
+        self.config = {
+            "host":"localhost",
+            "user":"root",
+            "password":"leonardo",
+            "database":"AlumnoRepo"
+        }
+        
+    def get_connection(self): 
+        # Crea y devuelve una conexion a la db
+        return mysql.connector.connect(**self.config)
+    
+    def insert_alumno(self, nombre, carrera): 
+        # Metodo para insertar alumnos a la db
+        connection = None
+        cursor = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor()
+            query = "insert into alumnos (nombre,carrera) values (%s, %s)"
+            cursor.execute(query, (nombre, carrera))
+            connection.commit()
+        except Error as e:
+            print(f"Error al insertar alumno: {e}")
+        finally:
+            if cursor is not None:
+                try:
+                    cursor.close()
+                except Exception:
+                    pass
+            if connection is not None:
+                try:
+                    if connection.is_connected():
+                        connection.close()
+                except Exception:
+                    pass
+
+    def get_alumnos(self):
+        alumnos = []
+        connection = None
+        cursor = None
+        try: 
+            connection = self.get_connection()
+            cursor = connection.cursor()
+            query = "SELECT * FROM alumnos"
+            cursor.execute(query)
+            alumnos = cursor.fetchall()
+            return alumnos
+        except Error as e:
+            print(f"Error al obtener alumnos: {e}")
+            return alumnos
+        finally:
+            if cursor is not None:
+                try:
+                    cursor.close()
+                except Exception:
+                    pass
+            if connection is not None:
+                try:
+                    if connection.is_connected():
+                        connection.close()
+                except Exception:
+                    pass
+                
+    def get_alumno_by_id(self, alumno_id):
+        connection = None
+        cursor = None
+        try: 
+            connection = self.get_connection()
+            cursor = connection.cursor()
+            query = "SELECT * FROM alumnos WHERE id = %s"
+            cursor.execute(query, (alumno_id,))
+            alumnos = cursor.fetchone()
+            return alumnos
+        except Error as e:
+            print(f"Error al obtener alumnos: {e}")
+            return alumnos
+        finally:
+            if cursor is not None:
+                try:
+                    cursor.close()
+                except Exception:
+                    pass
+            if connection is not None:
+                try:
+                    if connection.is_connected():
+                        connection.close()
+                except Exception:
+                    pass

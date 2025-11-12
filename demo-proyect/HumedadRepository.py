@@ -1,6 +1,16 @@
-import mysql.connector
-from mysql.connector import Error
 from datetime import datetime
+
+
+def _import_mysql():
+    """Carga perezosa del conector MySQL con mensaje claro si falta."""
+    try:
+        import mysql.connector  # type: ignore
+        from mysql.connector import Error  # type: ignore
+        return mysql.connector, Error
+    except Exception as e:
+        raise ImportError(
+            "Falta instalar 'mysql-connector-python'. Instálalo con: pip install mysql-connector-python"
+        ) from e
 
 class HumedadRepository:
     def __init__(self):
@@ -13,7 +23,8 @@ class HumedadRepository:
         
     def get_connection(self): 
         # Crea y devuelve una conexion a la db
-        return mysql.connector.connect(**self.config)
+        mysql, _ = _import_mysql()
+        return mysql.connect(**self.config)
     
     def insert_data(self, humedad): 
         # Metodo para insertar registros de humedad en la db
@@ -26,7 +37,7 @@ class HumedadRepository:
             query = "INSERT INTO humedades (humedad, fecha) VALUES (%s, %s)"
             cursor.execute(query, (humedad, datetime.now()))
             connection.commit()
-        except Error as e:
+        except Exception as e:
             print(f"Error al insertar: {e}")
         finally:
             if cursor is not None:
@@ -53,7 +64,7 @@ class HumedadRepository:
             cursor.execute(query)
             valores = cursor.fetchall()
             return valores
-        except Error as e:
+        except Exception as e:
             print(f"Error al obtener: {e}")
             return valores
         finally:

@@ -1,6 +1,12 @@
 from fastapi import FastAPI
-from HumedadRepository import HumedadRepository
-from HumedadDTOS import CreateHumedadRequest
+try:
+    # Cuando se ejecuta como paquete: uvicorn demo-proyect.main:app
+    from .HumedadRepository import HumedadRepository
+    from .HumedadDTOS import CreateHumedadRequest
+except ImportError:
+    # Cuando se ejecuta dentro de la carpeta: uvicorn main:app
+    from HumedadRepository import HumedadRepository
+    from HumedadDTOS import CreateHumedadRequest
 
 app = FastAPI()
 

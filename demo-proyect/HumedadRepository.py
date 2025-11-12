@@ -33,8 +33,8 @@ class HumedadRepository:
         try:
             connection = self.get_connection()
             cursor = connection.cursor()
-            # Unificamos el nombre de la tabla a 'humedades'
-            query = "INSERT INTO humedades (humedad, fecha) VALUES (%s, %s)"
+            # Inserta en la tabla 'humedad' acorde a la estructura actual
+            query = "INSERT INTO humedad (humedad, fecha) VALUES (%s, %s)"
             cursor.execute(query, (humedad, datetime.now()))
             connection.commit()
         except Exception as e:
@@ -60,7 +60,7 @@ class HumedadRepository:
             connection = self.get_connection()
             # Retorna diccionarios para facilitar la serializacion en FastAPI
             cursor = connection.cursor(dictionary=True)
-            query = "SELECT * FROM humedades"
+            query = "SELECT * FROM humedad"
             cursor.execute(query)
             valores = cursor.fetchall()
             return valores

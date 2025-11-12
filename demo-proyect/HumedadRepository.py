@@ -1,5 +1,6 @@
 import mysql.connector
 from mysql.connector import Error
+from datetime import datetime
 
 class HumedadRepository:
     def __init__(self):
@@ -14,7 +15,7 @@ class HumedadRepository:
         # Crea y devuelve una conexion a la db
         return mysql.connector.connect(**self.config)
     
-    def insert_alumno(self, humedad): 
+    def insert_data(self, humedad): 
         # Metodo para insertar alumnos a la db
         connection = None
         cursor = None

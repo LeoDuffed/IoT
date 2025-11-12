@@ -1,82 +1,79 @@
+from contextlib import closing
 from datetime import datetime
+from typing import Dict, List, Optional, Set
 
+try:
+    import mysql.connector  # type: ignore
+except ImportError as exc:  # pragma: no cover - se ejecuta solo si falta la dependencia
+    raise ImportError(
+        "Falta instalar 'mysql-connector-python'. Instálalo con: pip install mysql-connector-python"
+    ) from exc
 
-def _import_mysql():
-    """Carga perezosa del conector MySQL con mensaje claro si falta."""
-    try:
-        import mysql.connector  # type: ignore
-        from mysql.connector import Error  # type: ignore
-        return mysql.connector, Error
-    except Exception as e:
-        raise ImportError(
-            "Falta instalar 'mysql-connector-python'. Instálalo con: pip install mysql-connector-python"
-        ) from e
 
 class HumedadRepository:
-    def __init__(self):
-        self.config = {
-            "host":"localhost",
-            "user":"root",
-            "password":"leonardo",
-            "database":"demoProyectoIoT"
+    def __init__(self) -> None:
+        self._config = {
+            "host": "localhost",
+            "user": "root",
+            "password": "leonardo",
+            "database": "demoProyectoIoT",
         }
-        
-    def get_connection(self): 
-        # Crea y devuelve una conexion a la db
-        mysql, _ = _import_mysql()
-        return mysql.connect(**self.config)
-    
-    def insert_data(self, humedad): 
-        # Metodo para insertar registros de humedad en la db
-        connection = None
-        cursor = None
-        try:
-            connection = self.get_connection()
-            cursor = connection.cursor()
-            # Inserta en la tabla 'humedad' acorde a la estructura actual
-            query = "INSERT INTO humedad (humedad, fecha) VALUES (%s, %s)"
-            cursor.execute(query, (humedad, datetime.now()))
-            connection.commit()
-        except Exception as e:
-            raise RuntimeError("Error al insertar en la base de datos") from e
-        finally:
-            if cursor is not None:
-                try:
-                    cursor.close()
-                except Exception:
-                    pass
-            if connection is not None:
-                try:
-                    if connection.is_connected():
-                        connection.close()
-                except Exception:
-                    pass
+        self._table = "humedad"
+        self._columns_cache: Optional[Set[str]] = None
 
-    def get_humedad(self):
-        valores = []
-        connection = None
-        cursor = None
-        try: 
-            connection = self.get_connection()
-            # Retorna diccionarios para facilitar la serializacion en FastAPI
-            cursor = connection.cursor(dictionary=True)
-            query = "SELECT * FROM humedad"
-            cursor.execute(query)
-            valores = cursor.fetchall()
-            return valores
-        except Exception as e:
-            raise RuntimeError("Error al obtener los registros de la base de datos") from e
-        finally:
-            if cursor is not None:
-                try:
-                    cursor.close()
-                except Exception:
-                    pass
-            if connection is not None:
-                try:
-                    if connection.is_connected():
-                        connection.close()
-                except Exception:
-                    pass
-                
-    
+    def _get_connection(self):
+        return mysql.connector.connect(**self._config)
+
+    def insert_data(self, humedad: float) -> None:
+        columnas = ["humedad"]
+        valores = [humedad]
+
+        if "fecha" in self._get_table_columns():
+            columnas.append("fecha")
+            valores.append(datetime.now())
+
+        columnas_sql = ", ".join(columnas)
+        placeholders = ", ".join(["%s"] * len(valores))
+        query = f"INSERT INTO {self._table} ({columnas_sql}) VALUES ({placeholders})"
+
+        try:
+            with closing(self._get_connection()) as connection, closing(connection.cursor()) as cursor:
+                cursor.execute(query, tuple(valores))
+                connection.commit()
+        except Exception as exc:
+            raise RuntimeError("Error al insertar en la base de datos") from exc
+
+    def get_humedad(self) -> List[Dict[str, object]]:
+        query = f"SELECT * FROM {self._table}"
+        try:
+            with closing(self._get_connection()) as connection, closing(
+                connection.cursor(dictionary=True)
+            ) as cursor:
+                cursor.execute(query)
+                return cursor.fetchall()
+        except Exception as exc:
+            raise RuntimeError("Error al obtener los registros de la base de datos") from exc
+
+    def _get_table_columns(self) -> Set[str]:
+        if self._columns_cache is not None:
+            return self._columns_cache
+
+        info_schema_query = """
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+        """
+        try:
+            with closing(self._get_connection()) as connection, closing(connection.cursor()) as cursor:
+                cursor.execute(
+                    info_schema_query,
+                    (self._config["database"], self._table),
+                )
+                self._columns_cache = {row[0] for row in cursor.fetchall()}
+                if not self._columns_cache:
+                    raise RuntimeError(
+                        f"La tabla '{self._table}' no tiene columnas visibles en INFORMATION_SCHEMA."
+                    )
+                return self._columns_cache
+        except Exception as exc:
+            raise RuntimeError("No se pudieron leer las columnas de la tabla 'humedad'") from exc

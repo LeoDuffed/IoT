@@ -38,7 +38,7 @@ class HumedadRepository:
             cursor.execute(query, (humedad, datetime.now()))
             connection.commit()
         except Exception as e:
-            print(f"Error al insertar: {e}")
+            raise RuntimeError("Error al insertar en la base de datos") from e
         finally:
             if cursor is not None:
                 try:
@@ -65,8 +65,7 @@ class HumedadRepository:
             valores = cursor.fetchall()
             return valores
         except Exception as e:
-            print(f"Error al obtener: {e}")
-            return valores
+            raise RuntimeError("Error al obtener los registros de la base de datos") from e
         finally:
             if cursor is not None:
                 try:

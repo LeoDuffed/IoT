@@ -13,9 +13,9 @@ nueva_carrera = input("Ingresa la nueva carrera: ")
 
 actualizado = alumno_repo.update_alumno_carrera_by_id(alumno_id, nueva_carrera)
 if actualizado:
-    print("Carrera actualizada correctamente.")
+    print("Se actualizo la carrera.")
     alumno = alumno_repo.get_alumno_by_id(alumno_id)
     if alumno:
         print("Alumno actualizado:", alumno)
 else:
-    print("No se actualizó ninguna fila. Verifica el id.")
+    print("Error")

@@ -1,65 +1,227 @@
-import Image from "next/image";
+"use client"
+
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "@/components/ui/card"
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs"
+import { Separator } from "@/components/ui/separator"
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  CartesianGrid,
+} from "recharts"
+
+// Datos dummy para las gráficas
+const tempData = [
+  { time: "10:00", value: 22.1 },
+  { time: "10:10", value: 22.4 },
+  { time: "10:20", value: 22.8 },
+  { time: "10:30", value: 23.0 },
+  { time: "10:40", value: 23.3 },
+  { time: "10:50", value: 23.1 },
+]
+
+const humData = [
+  { time: "10:00", value: 48 },
+  { time: "10:10", value: 50 },
+  { time: "10:20", value: 49 },
+  { time: "10:30", value: 51 },
+  { time: "10:40", value: 50 },
+  { time: "10:50", value: 52 },
+]
+
+const gasData = [
+  { time: "10:00", value: 120 },
+  { time: "10:10", value: 130 },
+  { time: "10:20", value: 110 },
+  { time: "10:30", value: 140 },
+  { time: "10:40", value: 135 },
+  { time: "10:50", value: 125 },
+]
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen bg-sky-50 text-slate-900">
+      <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+        {/* Encabezado muy simple */}
+        <header className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Casa Inteligente
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-sm text-slate-600">
+            Vista de gráficas de sensores (datos de ejemplo).
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+        </header>
+
+        <Separator />
+
+        {/* Tabs para cambiar de sensor */}
+        <Tabs defaultValue="temp" className="w-full">
+          <TabsList className="bg-white border border-slate-200 rounded-full p-1 gap-1">
+            <TabsTrigger
+              value="temp"
+              className="data-[state=active]:bg-sky-100 data-[state=active]:text-sky-900 rounded-full px-4"
+            >
+              Temperatura
+            </TabsTrigger>
+            <TabsTrigger
+              value="hum"
+              className="data-[state=active]:bg-sky-100 data-[state=active]:text-sky-900 rounded-full px-4"
+            >
+              Humedad
+            </TabsTrigger>
+            <TabsTrigger
+              value="gas"
+              className="data-[state=active]:bg-sky-100 data-[state=active]:text-sky-900 rounded-full px-4"
+            >
+              Gas
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Temperatura */}
+          <TabsContent value="temp" className="mt-4">
+            <Card className="bg-white border-slate-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-baseline justify-between">
+                  <span className="text-sm font-medium text-slate-800">
+                    Temperatura (°C)
+                  </span>
+                  <span className="text-2xl font-semibold text-slate-900">
+                    23.1°
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={tempData}>
+                    <defs>
+                      <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.6} />
+                        <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="time" tick={{ fontSize: 12 }} />
+                    <YAxis
+                      tick={{ fontSize: 12 }}
+                      width={40}
+                      domain={["auto", "auto"]}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: "1px solid #e5e7eb",
+                        fontSize: 12,
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#0ea5e9"
+                      fill="url(#tempGradient)"
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Humedad */}
+          <TabsContent value="hum" className="mt-4">
+            <Card className="bg-white border-slate-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-baseline justify-between">
+                  <span className="text-sm font-medium text-slate-800">
+                    Humedad relativa (%)
+                  </span>
+                  <span className="text-2xl font-semibold text-slate-900">
+                    50%
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={humData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="time" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} width={40} />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: "1px solid #e5e7eb",
+                        fontSize: 12,
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#22c55e"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Gas */}
+          <TabsContent value="gas" className="mt-4">
+            <Card className="bg-white border-slate-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-baseline justify-between">
+                  <span className="text-sm font-medium text-slate-800">
+                    Concentración de gas (ppm)
+                  </span>
+                  <span className="text-2xl font-semibold text-slate-900">
+                    130 ppm
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={gasData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="time" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} width={50} />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: "1px solid #e5e7eb",
+                        fontSize: 12,
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#f97316"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </main>
+  )
 }

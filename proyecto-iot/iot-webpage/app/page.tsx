@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect, useState } from "react"
+
 import {
   Card,
   CardHeader,
@@ -25,7 +27,7 @@ import {
   CartesianGrid,
 } from "recharts"
 
-// Datos dummy para las gráficas
+// Datos dummy para temperatura y gas
 const tempData = [
   { time: "10:00", value: 22.1 },
   { time: "10:10", value: 22.4 },
@@ -33,15 +35,6 @@ const tempData = [
   { time: "10:30", value: 23.0 },
   { time: "10:40", value: 23.3 },
   { time: "10:50", value: 23.1 },
-]
-
-const humData = [
-  { time: "10:00", value: 48 },
-  { time: "10:10", value: 50 },
-  { time: "10:20", value: 49 },
-  { time: "10:30", value: 51 },
-  { time: "10:40", value: 50 },
-  { time: "10:50", value: 52 },
 ]
 
 const gasData = [
@@ -53,7 +46,42 @@ const gasData = [
   { time: "10:50", value: 125 },
 ]
 
+// Tipo de dato que regresa el backend de Python
+type HumPoint = {
+  value: number
+  time: string
+}
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
+
 export default function Home() {
+  const [humData, setHumData] = useState<HumPoint[]>([])
+  const [loadingHum, setLoadingHum] = useState(false)
+  const [errorHum, setErrorHum] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchHum = async () => {
+      try {
+        setLoadingHum(true)
+        setErrorHum(null)
+        const res = await fetch(`${API_BASE}/humedad`)
+        if (!res.ok) {
+          throw new Error("Respuesta no OK del servidor")
+        }
+        const data: HumPoint[] = await res.json()
+        setHumData(data)
+      } catch (err) {
+        console.error(err)
+        setErrorHum("No se pudieron cargar los datos de humedad.")
+      } finally {
+        setLoadingHum(false)
+      }
+    }
+
+    fetchHum()
+  }, [])
+
   return (
     <main className="min-h-screen bg-sky-50 text-slate-900">
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
@@ -63,7 +91,7 @@ export default function Home() {
             Casa Inteligente
           </h1>
           <p className="text-sm text-slate-600">
-            Vista de gráficas de sensores (datos de ejemplo).
+            Vista de gráficas de sensores.
           </p>
         </header>
 
@@ -92,7 +120,7 @@ export default function Home() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Temperatura */}
+          {/* Temperatura (dummy) */}
           <TabsContent value="temp" className="mt-4">
             <Card className="bg-white border-slate-200 shadow-sm">
               <CardHeader>
@@ -116,11 +144,7 @@ export default function Home() {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="time" tick={{ fontSize: 12 }} />
-                    <YAxis
-                      tick={{ fontSize: 12 }}
-                      width={40}
-                      domain={["auto", "auto"]}
-                    />
+                    <YAxis tick={{ fontSize: 12 }} width={40} />
                     <Tooltip
                       contentStyle={{
                         borderRadius: 12,
@@ -141,7 +165,7 @@ export default function Home() {
             </Card>
           </TabsContent>
 
-          {/* Humedad */}
+          {/* Humedad (conectada a Python + MySQL) */}
           <TabsContent value="hum" className="mt-4">
             <Card className="bg-white border-slate-200 shadow-sm">
               <CardHeader>
@@ -150,38 +174,57 @@ export default function Home() {
                     Humedad relativa (%)
                   </span>
                   <span className="text-2xl font-semibold text-slate-900">
-                    50%
+                    {humData.length > 0
+                      ? `${humData[humData.length - 1].value.toFixed(1)}%`
+                      : "--"}
                   </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={humData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="time" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} width={40} />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: 12,
-                        border: "1px solid #e5e7eb",
-                        fontSize: 12,
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke="#22c55e"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                      activeDot={{ r: 5 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                {loadingHum ? (
+                  <div className="h-full flex items-center justify-center text-sm text-slate-500">
+                    Cargando datos de humedad...
+                  </div>
+                ) : errorHum ? (
+                  <div className="h-full flex items-center justify-center text-sm text-red-500">
+                    {errorHum}
+                  </div>
+                ) : humData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-sm text-slate-500">
+                    No hay datos de humedad en la base de datos.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={humData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis
+                        dataKey="time"
+                        tick={{ fontSize: 11 }}
+                      />
+                      <YAxis tick={{ fontSize: 12 }} width={40} />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: 12,
+                          border: "1px solid #e5e7eb",
+                          fontSize: 12,
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke="#22c55e"
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Gas */}
+          {/* Gas (dummy) */}
           <TabsContent value="gas" className="mt-4">
             <Card className="bg-white border-slate-200 shadow-sm">
               <CardHeader>

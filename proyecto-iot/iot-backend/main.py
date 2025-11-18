@@ -42,6 +42,10 @@ class TemperaturaPoint(BaseModel):
     value: float
     time: str
 
+class PresionPoint(BaseModel):
+    value: float
+    time: str
+
 def get_connection():
     return mysql.connector.connect(**DB_CONFIG)
 
@@ -60,7 +64,7 @@ def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def fetch_measurements(table_name: str, limit: int = 200) -> list[dict[str, Any]]:
-    if table_name not in {"humedad", "temperatura"}:
+    if table_name not in {"humedad", "temperatura", "presion"}:
         raise ValueError("Tabla no permitida")
 
     conn = None
@@ -97,3 +101,7 @@ def get_humedad():
 @app.get("/temperatura", response_model=List[TemperaturaPoint])
 def get_temperatura():
     return fetch_measurements("temperatura")
+
+@app.get("/presion", response_model=List[TemperaturaPoint])
+def get_temperatura():
+    return fetch_measurements("presion")

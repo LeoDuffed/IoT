@@ -71,10 +71,13 @@ const normalizeSeries = (data: ApiPoint[]): ChartPoint[] =>
 export default function Home() {
   const [humData, setHumData] = useState<ChartPoint[]>([])
   const [tempData, setTempData] = useState<ChartPoint[]>([])
+  const [presData, setPresData] = useState<ChartPoint[]>([])
   const [loadingHum, setLoadingHum] = useState(false)
   const [loadingTemp, setLoadingTemp] = useState(false)
+  const [loadingPres, setLoadingPres] = useState(false)
   const [errorHum, setErrorHum] = useState<string | null>(null)
   const [errorTemp, setErrorTemp] = useState<string | null>(null)
+  const [errorPres, setErrorPres] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchHum = async () => {
@@ -122,6 +125,30 @@ export default function Home() {
     }
 
     fetchTemp()
+  }, [])
+
+  useEffect(() => { // Presion
+    const fetchPres = async () => {
+      try {
+        setLoadingHum(true)
+        setErrorPres(null)
+        const res = await fetch(`${API_BASE}/presion`, {
+          cache: "no-store",
+        })
+        if (!res.ok) {
+          throw new Error("Respuesta no OK del servidor")
+        }
+        const data: ApiPoint[] = await res.json()
+        setPresData(normalizeSeries(data))
+      } catch (err) {
+        console.error(err)
+        setErrorPres("No se pudieron cargar los datos de temperatura.")
+      } finally {
+        setLoadingPres(false)
+      }
+    }
+
+    fetchPres()
   }, [])
 
   return (
@@ -280,46 +307,64 @@ export default function Home() {
             </Card>
           </TabsContent>
 
-          {/* Gas (dummy)
+          {/* Presion */}
           <TabsContent value="gas" className="mt-4">
             <Card className="bg-white border-slate-200 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-baseline justify-between">
                   <span className="text-sm font-medium text-slate-800">
-                    Concentración de gas (ppm)
+                    Presion (hPa)
                   </span>
                   <span className="text-2xl font-semibold text-slate-900">
-                    130 ppm
+                    {presData.length > 0
+                      ? `${presData[presData.length - 1].value.toFixed(1)}hPa` : "--"
+                    }
                   </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={gasData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="time" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} width={50} />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: 12,
-                        border: "1px solid #e5e7eb",
-                        fontSize: 12,
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke="#f97316"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                      activeDot={{ r: 5 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                {loadingPres ? (
+                  <div className="h-full flex items-center justify-center text-sm text-black">
+                    Cargando datos de presión...
+                  </div>
+                ) : errorPres ? (
+                  <div className="h-full flex items-center justify-center text-sm text-red">
+                    {errorPres}
+                  </div>
+                ) : presData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-sm text-black">
+                    No hay datos de presión en la base de datos.
+                  </div>
+                ): (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={presData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis
+                        dataKey="time"
+                        tick={{ fontSize: 11 }}
+                      />
+                      <YAxis tick={{ fontSize: 12 }} width={40} />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: 12,
+                          border: "1px solid #e5e7eb",
+                          fontSize: 12,
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke="#22c55e"
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
-          */}
         </Tabs>
       </div>
     </main>

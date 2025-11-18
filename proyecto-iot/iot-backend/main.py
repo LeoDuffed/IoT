@@ -2,7 +2,6 @@ from datetime import datetime
 from decimal import Decimal
 import os
 from typing import Any, List
-
 import mysql.connector
 from dotenv import load_dotenv
 from fastapi import FastAPI

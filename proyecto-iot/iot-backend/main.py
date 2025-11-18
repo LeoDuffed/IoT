@@ -57,18 +57,23 @@ def get_humedad():
                 valor           AS value,  -- El valor de la medición de humedad
                 hora_medicion   AS time    -- La fecha y hora de la medición
             FROM humedad
-            ORDER BY hora_medicion DESC -- Usamos DESC para ver primero los más recientes
+            ORDER BY hora_medicion ASC -- Entregar datos ordenados cronológicamente
             LIMIT 200;
         """
-        # Nota: Cambié a DESC si quieres los datos más recientes primero.
-        # Si quieres los datos más viejos primero, usa ASC.
         
         cursor.execute(query)
         rows = cursor.fetchall()
+        normalized = [
+            {
+                "value": row["value"],
+                "time": row["time"].isoformat() if row["time"] else None,
+            }
+            for row in rows
+        ]
 
         cursor.close()
         conn.close()
-        return rows
+        return normalized
     except Error as e:
         print(f"Error al conectar a MySQL o ejecutar la consulta: {e}")
         # Si hay error, regresamos lista vacía (mejor que crashear)

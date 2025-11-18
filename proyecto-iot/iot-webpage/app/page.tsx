@@ -47,9 +47,15 @@ const gasData = [
 ]
 
 // Tipo de dato que regresa el backend de Python
+type HumApiPoint = {
+  value: number
+  time: string
+}
+
 type HumPoint = {
   value: number
   time: string
+  isoTime: string
 }
 
 const API_BASE =
@@ -65,12 +71,35 @@ export default function Home() {
       try {
         setLoadingHum(true)
         setErrorHum(null)
-        const res = await fetch(`${API_BASE}/humedad`)
+        const res = await fetch(`${API_BASE}/humedad`, {
+          cache: "no-store",
+        })
         if (!res.ok) {
           throw new Error("Respuesta no OK del servidor")
         }
-        const data: HumPoint[] = await res.json()
-        setHumData(data)
+        const data: HumApiPoint[] = await res.json()
+        const normalized = data
+          .map((point) => {
+            const isoTime = point.time.includes("T")
+              ? point.time
+              : point.time.replace(" ", "T")
+            const dateValue = new Date(isoTime)
+
+            return {
+              value: point.value,
+              isoTime,
+              time: dateValue.toLocaleTimeString("es-MX", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              }),
+            }
+          })
+          .sort(
+            (a, b) =>
+              new Date(a.isoTime).getTime() - new Date(b.isoTime).getTime(),
+          )
+        setHumData(normalized)
       } catch (err) {
         console.error(err)
         setErrorHum("No se pudieron cargar los datos de humedad.")

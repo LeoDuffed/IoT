@@ -1,11 +1,15 @@
+from datetime import datetime
+from decimal import Decimal
+import os
+from typing import Any, List
+
+import mysql.connector
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import mysql.connector
 from mysql.connector import Error
-from dotenv import load_dotenv
-import os
-from typing import List
+from pydantic import BaseModel
+
 load_dotenv()
 
 DB_CONFIG = {
@@ -18,7 +22,6 @@ DB_CONFIG = {
 
 app = FastAPI()
 
-# Permitir llamadas desde tu frontend en http://localhost:3000
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -36,45 +39,62 @@ class HumedadPoint(BaseModel):
     value: float
     time: str
 
+class TemperaturaPoint(BaseModel):
+    value: float
+    time: str
+
 def get_connection():
     return mysql.connector.connect(**DB_CONFIG)
 
-@app.get("/humedad", response_model=List[HumedadPoint])
-def get_humedad():
-    """
-    Lee la tabla `humedad` en la base iot_db
-    y regresa una lista [{value, time}, ...]
-    """
+def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
+    value = row.get("value")
+    if isinstance(value, Decimal):
+        value = float(value)
+
+    time_value = row.get("time")
+    if isinstance(time_value, datetime):
+        time_value = time_value.isoformat()
+    elif time_value is not None:
+        time_value = str(time_value)
+
+    return {"value": value, "time": time_value}
+
+
+def fetch_measurements(table_name: str, limit: int = 200) -> list[dict[str, Any]]:
+    if table_name not in {"humedad", "temperatura"}:
+        raise ValueError("Tabla no permitida")
+
+    conn = None
+    cursor = None
     try:
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-
-        # --------------------------------------------------------------------
-        # Consulta SQL CORREGIDA: Usando 'valor' y 'hora_medicion'
-        # --------------------------------------------------------------------
-        query = """
+        query = f"""
             SELECT 
-                valor           AS value,  -- El valor de la medición de humedad
-                hora_medicion   AS time    -- La fecha y hora de la medición
-            FROM humedad
-            ORDER BY hora_medicion ASC -- Entregar datos ordenados cronológicamente
-            LIMIT 200;
+                valor AS value,
+                hora_medicion AS time
+            FROM {table_name}
+            ORDER BY hora_medicion ASC
+            LIMIT %s;
         """
-        
-        cursor.execute(query)
+        cursor.execute(query, (limit,))
         rows = cursor.fetchall()
-        normalized = [
-            {
-                "value": row["value"],
-                "time": row["time"].isoformat() if row["time"] else None,
-            }
-            for row in rows
-        ]
-
-        cursor.close()
-        conn.close()
-        return normalized
+        return [normalize_row(row) for row in rows]
     except Error as e:
-        print(f"Error al conectar a MySQL o ejecutar la consulta: {e}")
-        # Si hay error, regresamos lista vacía (mejor que crashear)
+        print(f"Error al conectar a MySQL: {e}")
         return []
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@app.get("/humedad", response_model=List[HumedadPoint])
+def get_humedad():
+    return fetch_measurements("humedad")
+
+
+@app.get("/temperatura", response_model=List[TemperaturaPoint])
+def get_temperatura():
+    return fetch_measurements("temperatura")

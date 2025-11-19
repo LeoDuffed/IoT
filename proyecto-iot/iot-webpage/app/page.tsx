@@ -210,10 +210,10 @@ export default function Home() {
         {/* Encabezado muy simple */}
         <header className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Casa Inteligente
+            Sensores en la casa inteligente
           </h1>
           <p className="text-sm text-slate-600">
-            Vista de gráficas de sensores.
+            Graficas de los datos.
           </p>
         </header>
 

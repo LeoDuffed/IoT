@@ -47,7 +47,7 @@ class PresionPoint(BaseModel):
     time: str
 
 def get_connection():
-    return mysql.connector.connect(**DB_CONFIG)
+    return mysql.connector.connect(**DB_CONFIG, use_pure = True,)
 
 def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
     value = row.get("value")

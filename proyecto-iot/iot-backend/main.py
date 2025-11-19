@@ -64,7 +64,7 @@ def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def fetch_measurements(table_name: str, limit: int = 200) -> list[dict[str, Any]]:
-    if table_name not in {"humedad", "temperatura", "presion", "luz"}:
+    if table_name not in {"humedad", "temperatura", "presion", "luz", "gas"}:
         raise ValueError("Tabla no permitida")
 
     conn = None
@@ -97,7 +97,6 @@ def fetch_measurements(table_name: str, limit: int = 200) -> list[dict[str, Any]
 def get_humedad():
     return fetch_measurements("humedad")
 
-
 @app.get("/temperatura", response_model=List[TemperaturaPoint])
 def get_temperatura():
     return fetch_measurements("temperatura")
@@ -109,3 +108,7 @@ def get_temperatura():
 @app.get("/luz", response_model=List[TemperaturaPoint])
 def get_luz():
     return fetch_measurements("luz")
+
+@app.get("/gas", response_model=List[TemperaturaPoint])
+def get_gas():
+    return fetch_measurements("gas")

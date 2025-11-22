@@ -2,6 +2,9 @@
 // https://pypi.org/project/paho-mqtt/#installation
 // ya esta codigo para conectar por mqtt
 // para checar conexion: https://testclient-cloud.mqtt.cool
+// sensores conectados:
+// luz, temperatura, gas, lluvia
+
 
 "use client"
 

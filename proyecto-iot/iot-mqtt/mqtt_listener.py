@@ -1,5 +1,3 @@
-# Este es un programa de prueba aun
-
 from datetime import datetime
 import os
 import json
@@ -21,37 +19,43 @@ DB_CONFIG = {
     "database": os.getenv("DB_NAME"),
 }
 
-# Broker MQTT
 BROKER = "test.mosquitto.org"
 PORT = 1883
-TOPIC = "umisumi/test/message"     # == TOPIC del Arduino
+TOPIC = "umisumi/test/message"
 
-# ---------------------------------------
-# Función para conectar a MySQL
-# ---------------------------------------
+# Tablas permitidas (deben existir en tu BD)
+ALLOWED_TABLES = {"humedad", "temperatura", "presion", "luz", "gas"}
+
+
 def get_connection():
     return mysql.connector.connect(**DB_CONFIG, use_pure=True)
 
 
-# ---------------------------------------
-# Función para insertar el mensaje a la BD
-# ---------------------------------------
-def insert_message(msg: str):
+def insert_measurement(sensor_type: str, value: float):
+    """
+    Inserta en la tabla correspondiente (temperatura, humedad, etc.)
+    usando columnas: valor, hora_medicion.
+    """
+    if sensor_type not in ALLOWED_TABLES:
+        print(f"[WARN] Tipo de sensor no permitido: {sensor_type}")
+        return
+
     conn = None
     cursor = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
 
-        query = """
-            INSERT INTO mqtt_dummy (message, ts)
+        # OJO: el nombre de la tabla se inserta en el SQL ya validado
+        query = f"""
+            INSERT INTO {sensor_type} (valor, hora_medicion)
             VALUES (%s, NOW());
         """
 
-        cursor.execute(query, (msg,))
+        cursor.execute(query, (value,))
         conn.commit()
 
-        print(f"[SQL] Insertado en BD: {msg}")
+        print(f"[SQL] Insertado en tabla '{sensor_type}': {value}")
 
     except Error as e:
         print(f"[MySQL ERROR] {e}")
@@ -63,9 +67,6 @@ def insert_message(msg: str):
             conn.close()
 
 
-# ---------------------------------------
-# Callbacks MQTT
-# ---------------------------------------
 def on_connect(client, userdata, flags, rc):
     print("[MQTT] Conectado al broker con código:", rc)
     client.subscribe(TOPIC)
@@ -74,15 +75,24 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     payload = msg.payload.decode()
-    print(f"[MQTT] Mensaje recibido: {payload}")
+    print(f"[MQTT] Mensaje recibido crudo: {payload}")
 
-    # Guardar en la BD
-    insert_message(payload)
+    try:
+        data = json.loads(payload)
+
+        sensor_type = data.get("type")
+        value = float(data.get("value"))
+
+        if sensor_type is None:
+            print("[ERROR] No viene 'type' en el JSON")
+            return
+
+        insert_measurement(sensor_type, value)
+
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        print(f"[ERROR] Problema parseando JSON o valor: {e}")
 
 
-# ---------------------------------------
-# Inicializar cliente MQTT
-# ---------------------------------------
 def main():
     client = mqtt.Client()
 

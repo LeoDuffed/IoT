@@ -1,8 +1,7 @@
 // tenemos que usar paho
 // https://pypi.org/project/paho-mqtt/#installation
-// ya esta codigo para conectar por mqtt 
+// ya esta codigo para conectar por mqtt
 // para checar conexion: https://testclient-cloud.mqtt.cool
-
 
 "use client"
 
@@ -41,37 +40,35 @@ type ChartPoint = {
   isoTime: string
 }
 
+type WsPayload = {
+  temperatura?: ApiPoint | null
+  humedad?: ApiPoint | null
+  presion?: ApiPoint | null
+  luz?: ApiPoint | null
+  gas?: ApiPoint | null
+}
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
 
-const getTimestamp = (isoTime: string) => {
-  const ts = new Date(isoTime).getTime()
-  return Number.isNaN(ts) ? Number.NEGATIVE_INFINITY : ts
+const normalizePoint = (point: ApiPoint): ChartPoint => {
+  const rawTime = point.time ?? ""
+  const isoTime =
+    rawTime && rawTime.includes("T") ? rawTime : rawTime.replace(" ", "T")
+  const dateValue = rawTime ? new Date(isoTime) : null
+
+  return {
+    value: point.value,
+    isoTime,
+    time: dateValue
+      ? dateValue.toLocaleTimeString("es-MX", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })
+      : "--:--",
+  }
 }
-
-const normalizeSeries = (data: ApiPoint[]): ChartPoint[] =>
-  data
-    .map((point) => {
-      const rawTime = point.time ?? ""
-      const isoTime =
-        rawTime && rawTime.includes("T")
-          ? rawTime
-          : rawTime.replace(" ", "T")
-      const dateValue = rawTime ? new Date(isoTime) : null
-
-      return {
-        value: point.value,
-        isoTime,
-        time: dateValue
-          ? dateValue.toLocaleTimeString("es-MX", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            })
-          : "--:--",
-      }
-    })
-    .sort((a, b) => getTimestamp(a.isoTime) - getTimestamp(b.isoTime))
 
 export default function Home() {
   const [humData, setHumData] = useState<ChartPoint[]>([])
@@ -79,146 +76,69 @@ export default function Home() {
   const [presData, setPresData] = useState<ChartPoint[]>([])
   const [luzData, setLuzData] = useState<ChartPoint[]>([])
   const [gasData, setGasData] = useState<ChartPoint[]>([])
-  const [loadingHum, setLoadingHum] = useState(false)
-  const [loadingTemp, setLoadingTemp] = useState(false)
-  const [loadingPres, setLoadingPres] = useState(false)
-  const [loadingLuz, setLoadingLuz] = useState(false)
-  const [loadingGas, setLoadingGas] = useState(false)
-  const [errorHum, setErrorHum] = useState<string | null>(null)
-  const [errorTemp, setErrorTemp] = useState<string | null>(null)
-  const [errorPres, setErrorPres] = useState<string | null>(null)
-  const [errorLuz, setErrorLuz] = useState<string | null>(null)
-  const [errorGas, setErrorGas] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchHum = async () => {
+    const wsUrl = API_BASE.replace("http", "ws") + "/ws"
+    const ws = new WebSocket(wsUrl)
+
+    console.log("Conectando a WebSocket:", wsUrl)
+
+    ws.onmessage = (event) => {
       try {
-        setLoadingHum(true)
-        setErrorHum(null)
-        const res = await fetch(`${API_BASE}/humedad`, {
-          cache: "no-store",
-        })
-        if (!res.ok) {
-          throw new Error("Respuesta no OK del servidor")
+        const data: WsPayload = JSON.parse(event.data)
+
+        if (data.temperatura) {
+          const p = normalizePoint(data.temperatura)
+          setTempData((prev) => [...prev, p].slice(-200))
         }
-        const data: ApiPoint[] = await res.json()
-        setHumData(normalizeSeries(data))
+
+        if (data.humedad) {
+          const p = normalizePoint(data.humedad)
+          setHumData((prev) => [...prev, p].slice(-200))
+        }
+
+        if (data.presion) {
+          const p = normalizePoint(data.presion)
+          setPresData((prev) => [...prev, p].slice(-200))
+        }
+
+        if (data.luz) {
+          const p = normalizePoint(data.luz)
+          setLuzData((prev) => [...prev, p].slice(-200))
+        }
+
+        if (data.gas) {
+          const p = normalizePoint(data.gas)
+          setGasData((prev) => [...prev, p].slice(-200))
+        }
       } catch (err) {
-        console.error(err)
-        setErrorHum("No se pudieron cargar los datos de humedad.")
-      } finally {
-        setLoadingHum(false)
+        console.error("Error parseando mensaje de WS:", err)
       }
     }
 
-    fetchHum()
-  }, [])
-
-  useEffect(() => {
-    const fetchTemp = async () => {
-      try {
-        setLoadingTemp(true)
-        setErrorTemp(null)
-        const res = await fetch(`${API_BASE}/temperatura`, {
-          cache: "no-store",
-        })
-        if (!res.ok) {
-          throw new Error("Respuesta no OK del servidor")
-        }
-        const data: ApiPoint[] = await res.json()
-        setTempData(normalizeSeries(data))
-      } catch (err) {
-        console.error(err)
-        setErrorTemp("No se pudieron cargar los datos de temperatura.")
-      } finally {
-        setLoadingTemp(false)
-      }
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err)
     }
 
-    fetchTemp()
-  }, [])
-
-  useEffect(() => { // Presion
-    const fetchPres = async () => {
-      try {
-        setLoadingHum(true)
-        setErrorPres(null)
-        const res = await fetch(`${API_BASE}/presion`, {
-          cache: "no-store",
-        })
-        if (!res.ok) {
-          throw new Error("Respuesta no OK del servidor")
-        }
-        const data: ApiPoint[] = await res.json()
-        setPresData(normalizeSeries(data))
-      } catch (err) {
-        console.error(err)
-        setErrorPres("No se pudieron cargar los datos de temperatura.")
-      } finally {
-        setLoadingPres(false)
-      }
+    ws.onclose = () => {
+      console.log("WebSocket cerrado")
     }
 
-    fetchPres()
-  }, [])
-
-  useEffect(() => { 
-    const fetchLuz = async () => {
-      try {
-        setLoadingLuz(true)
-        setErrorLuz(null)
-        const res = await fetch(`${API_BASE}/luz`, {
-          cache: "no-store",
-        })
-        if (!res.ok) {
-          throw new Error("Respuesta no OK del servidor")
-        }
-        const data: ApiPoint[] = await res.json()
-        setLuzData(normalizeSeries(data))
-      } catch (err) {
-        console.error(err)
-        setErrorLuz("No se pudieron cargar los datos de temperatura.")
-      } finally {
-        setLoadingLuz(false)
-      }
+    return () => {
+      ws.close()
     }
-
-    fetchLuz()
-  }, [])
-
-  useEffect(() => { 
-    const fetchGas = async () => {
-      try {
-        setLoadingGas(true)
-        setErrorGas(null)
-        const res = await fetch(`${API_BASE}/gas`, {
-          cache: "no-store",
-        })
-        if (!res.ok) {
-          throw new Error("Respuesta no OK del servidor")
-        }
-        const data: ApiPoint[] = await res.json()
-        setGasData(normalizeSeries(data))
-      } catch (err) {
-        console.error(err)
-        setErrorGas("No se pudieron cargar los datos de temperatura.")
-      } finally {
-        setLoadingGas(false)
-      }
-    }
-    fetchGas()
   }, [])
 
   return (
     <main className="min-h-screen bg-sky-50 text-slate-900">
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-        {/* Encabezado muy simple */}
+        {/* Encabezado */}
         <header className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
             Sensores en la casa inteligente
           </h1>
           <p className="text-sm text-slate-600">
-            Graficas de los datos.
+            Gráficas en tiempo real desde los sensores conectados al Arduino.
           </p>
         </header>
 
@@ -243,7 +163,7 @@ export default function Home() {
               value="pres"
               className="data-[state=active]:bg-sky-100 data-[state=active]:text-sky-900 rounded-full px-4"
             >
-              Presion atm
+              Presión atm
             </TabsTrigger>
             <TabsTrigger
               value="luz"
@@ -259,7 +179,7 @@ export default function Home() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Temperatura (dummy) */}
+          {/* Temperatura */}
           <TabsContent value="temp" className="mt-4">
             <Card className="bg-white border-slate-200 shadow-sm">
               <CardHeader>
@@ -269,32 +189,21 @@ export default function Home() {
                   </span>
                   <span className="text-2xl font-semibold text-slate-900">
                     {tempData.length > 0
-                      ? `${tempData[tempData.length - 1].value.toFixed(1)}°` : "--"
-                    }
+                      ? `${tempData[tempData.length - 1].value.toFixed(1)}°`
+                      : "--"}
                   </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-72">
-                {loadingTemp ? (
-                  <div className="h-full flex items-center justify-center text-sm text-black">
-                    Cargando datos de temperatura...
-                  </div>
-                ) : errorTemp ? (
-                  <div className="h-full flex items-center justify-center text-sm text-red-500">
-                    {errorTemp}
-                  </div>
-                ) : tempData.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-sm text-black">
-                    No hay datos de temperatura.
+                {tempData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-sm text-slate-500">
+                    Esperando datos de temperatura en tiempo real...
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={tempData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis
-                        dataKey="time"
-                        tick={{ fontSize: 11 }}
-                      />
+                      <XAxis dataKey="time" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 12 }} width={40} />
                       <Tooltip
                         contentStyle={{
@@ -318,7 +227,7 @@ export default function Home() {
             </Card>
           </TabsContent>
 
-          {/* Humedad (conectada a Python + MySQL) */}
+          {/* Humedad */}
           <TabsContent value="hum" className="mt-4">
             <Card className="bg-white border-slate-200 shadow-sm">
               <CardHeader>
@@ -334,26 +243,15 @@ export default function Home() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-72">
-                {loadingHum ? (
+                {humData.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-sm text-slate-500">
-                    Cargando datos de humedad...
-                  </div>
-                ) : errorHum ? (
-                  <div className="h-full flex items-center justify-center text-sm text-red-500">
-                    {errorHum}
-                  </div>
-                ) : humData.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-sm text-slate-500">
-                    No hay datos de humedad en la base de datos.
+                    Esperando datos de humedad en tiempo real...
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={humData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis
-                        dataKey="time"
-                        tick={{ fontSize: 11 }}
-                      />
+                      <XAxis dataKey="time" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 12 }} width={40} />
                       <Tooltip
                         contentStyle={{
@@ -377,42 +275,31 @@ export default function Home() {
             </Card>
           </TabsContent>
 
-          {/* Presion */}
+          {/* Presión */}
           <TabsContent value="pres" className="mt-4">
             <Card className="bg-white border-slate-200 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-baseline justify-between">
                   <span className="text-sm font-medium text-slate-800">
-                    Presion (hPa)
+                    Presión (hPa)
                   </span>
                   <span className="text-2xl font-semibold text-slate-900">
                     {presData.length > 0
-                      ? `${presData[presData.length - 1].value.toFixed(1)}hPa` : "--"
-                    }
+                      ? `${presData[presData.length - 1].value.toFixed(1)} hPa`
+                      : "--"}
                   </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-72">
-                {loadingPres ? (
-                  <div className="h-full flex items-center justify-center text-sm text-black">
-                    Cargando datos de presión...
+                {presData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-sm text-slate-500">
+                    Esperando datos de presión en tiempo real...
                   </div>
-                ) : errorPres ? (
-                  <div className="h-full flex items-center justify-center text-sm text-red">
-                    {errorPres}
-                  </div>
-                ) : presData.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-sm text-black">
-                    No hay datos de presión en la base de datos.
-                  </div>
-                ): (
+                ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={presData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis
-                        dataKey="time"
-                        tick={{ fontSize: 11 }}
-                      />
+                      <XAxis dataKey="time" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 12 }} width={40} />
                       <Tooltip
                         contentStyle={{
@@ -446,32 +333,21 @@ export default function Home() {
                   </span>
                   <span className="text-2xl font-semibold text-slate-900">
                     {luzData.length > 0
-                      ? `${luzData[luzData.length - 1].value.toFixed(1)}%` : "--"
-                    }
+                      ? `${luzData[luzData.length - 1].value.toFixed(1)}%`
+                      : "--"}
                   </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-72">
-                {loadingLuz ? (
-                  <div className="h-full flex items-center justify-center text-sm text-black">
-                    Cargando datos de luz...
+                {luzData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-sm text-slate-500">
+                    Esperando datos de luz en tiempo real...
                   </div>
-                ) : errorLuz ? (
-                  <div className="h-full flex items-center justify-center text-sm text-red">
-                    {errorLuz}
-                  </div>
-                ) : luzData.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-sm text-black">
-                    No hay datos de luz en la base de datos.
-                  </div>
-                ): (
+                ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={luzData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis
-                        dataKey="time"
-                        tick={{ fontSize: 11 }}
-                      />
+                      <XAxis dataKey="time" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 12 }} width={40} />
                       <Tooltip
                         contentStyle={{
@@ -505,32 +381,21 @@ export default function Home() {
                   </span>
                   <span className="text-2xl font-semibold text-slate-900">
                     {gasData.length > 0
-                      ? `${gasData[gasData.length - 1].value.toFixed(1)}%` : "--"
-                    }
+                      ? `${gasData[gasData.length - 1].value.toFixed(1)}%`
+                      : "--"}
                   </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-72">
-                {loadingGas ? (
-                  <div className="h-full flex items-center justify-center text-sm text-black">
-                    Cargando datos de gas...
+                {gasData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-sm text-slate-500">
+                    Esperando datos de gas en tiempo real...
                   </div>
-                ) : errorGas ? (
-                  <div className="h-full flex items-center justify-center text-sm text-red">
-                    {errorGas}
-                  </div>
-                ) : gasData.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-sm text-black">
-                    No hay datos de gas en la base de datos.
-                  </div>
-                ): (
+                ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={gasData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis
-                        dataKey="time"
-                        tick={{ fontSize: 11 }}
-                      />
+                      <XAxis dataKey="time" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 12 }} width={40} />
                       <Tooltip
                         contentStyle={{

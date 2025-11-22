@@ -1,19 +1,20 @@
 from datetime import datetime
 from decimal import Decimal
 import os
-from typing import Any, List
+from typing import Any, Optional
+import asyncio
+
 import mysql.connector
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from mysql.connector import Error
-from pydantic import BaseModel
 
 load_dotenv()
 
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
-    "port": int(os.getenv("DB_PORT", "3306")),
+    "port": int(os.getenv("DB_PORT", 3306)),
     "user": os.getenv("DB_USER"),
     "password": os.getenv("DB_PASSWORD"),
     "database": os.getenv("DB_NAME"),
@@ -34,22 +35,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class HumedadPoint(BaseModel):
-    value: float
-    time: str
-
-class TemperaturaPoint(BaseModel):
-    value: float
-    time: str
-
-class PresionPoint(BaseModel):
-    value: float
-    time: str
+# -------------------------------
+# FUNCIONES DE BASE DE DATOS
+# -------------------------------
 
 def get_connection():
-    return mysql.connector.connect(**DB_CONFIG, use_pure = True,)
+    return mysql.connector.connect(**DB_CONFIG, use_pure=True)
 
 def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Convierte Decimal y datetime en tipos serializables."""
     value = row.get("value")
     if isinstance(value, Decimal):
         value = float(value)
@@ -62,53 +56,60 @@ def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
 
     return {"value": value, "time": time_value}
 
-
-def fetch_measurements(table_name: str, limit: int = 200) -> list[dict[str, Any]]:
-    if table_name not in {"humedad", "temperatura", "presion", "luz", "gas"}:
-        raise ValueError("Tabla no permitida")
-
+def get_latest_measurement(table_name: str) -> Optional[dict[str, Any]]:
+    """Regresa el último registro de una tabla."""
     conn = None
     cursor = None
     try:
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         query = f"""
-            SELECT 
-                valor AS value,
-                hora_medicion AS time
+            SELECT valor AS value, hora_medicion AS time
             FROM {table_name}
-            ORDER BY hora_medicion ASC
-            LIMIT %s;
+            ORDER BY hora_medicion DESC
+            LIMIT 1;
         """
-        cursor.execute(query, (limit,))
-        rows = cursor.fetchall()
-        return [normalize_row(row) for row in rows]
+        cursor.execute(query)
+        row = cursor.fetchone()
+        return normalize_row(row) if row else None
+
     except Error as e:
-        print(f"Error al conectar a MySQL: {e}")
-        return []
+        print(f"[MySQL ERROR] {e}")
+        return None
+
     finally:
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
+        if cursor: cursor.close()
+        if conn: conn.close()
 
+# -------------------------------
+# WEBSOCKET TIEMPO REAL
+# -------------------------------
 
-@app.get("/humedad", response_model=List[HumedadPoint])
-def get_humedad():
-    return fetch_measurements("humedad")
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    print("[WS] Cliente conectado")
 
-@app.get("/temperatura", response_model=List[TemperaturaPoint])
-def get_temperatura():
-    return fetch_measurements("temperatura")
+    try:
+        while True:
 
-@app.get("/presion", response_model=List[TemperaturaPoint])
-def get_temperatura():
-    return fetch_measurements("presion")
+            payload = {
+                "temperatura": get_latest_measurement("temperatura"),
+                "humedad": get_latest_measurement("humedad"),
+                "presion": get_latest_measurement("presion"),
+                "luz": get_latest_measurement("luz"),
+                "gas": get_latest_measurement("gas"),
+            }
 
-@app.get("/luz", response_model=List[TemperaturaPoint])
-def get_luz():
-    return fetch_measurements("luz")
+            await websocket.send_json(payload)
+            await asyncio.sleep(2)  # intervalo de actualización
 
-@app.get("/gas", response_model=List[TemperaturaPoint])
-def get_gas():
-    return fetch_measurements("gas")
+    except WebSocketDisconnect:
+        print("[WS] Cliente desconectado")
+
+    except Exception as e:
+        print(f"[WS] Error inesperado: {e}")
+        try:
+            await websocket.close()
+        except:
+            pass

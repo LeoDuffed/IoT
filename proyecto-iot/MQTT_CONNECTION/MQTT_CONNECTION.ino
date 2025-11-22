@@ -1,87 +1,67 @@
 #include "WiFiS3.h"
 #include <ArduinoMqttClient.h>
 
-char ssid[] = "Tec-IoT";    // your network SSID (name)
-char pass[] = "spotless.magnetic.bridge";    // your network password 
+char ssid[] = "Tec-IoT";         // WiFi SSID
+char pass[] = "spotless.magnetic.bridge";  // WiFi password 
 
 WiFiClient wifiClient;
 MqttClient mqttClient(wifiClient);
-  
-const char broker[] = "test.mosquitto.org"; //IP address of the EMQX broker.
+
+// MQTT Broker
+const char broker[] = "test.mosquitto.org";
 int        port     = 1883;
-const char subscribe_topic[]  = "E6/test/log";
+
+// SOLO publicamos
 const char publish_topic[]  = "E6/test/message";
 
-int temperature = 20;
+int num = 0;
 
 void setup() {
-  // Create serial connection and wait for it to become available.
   Serial.begin(9600);
-  while (!Serial) {
-    ; 
-  }
+  while (!Serial) { }
 
-  // Connect to WiFi
-  Serial.print("Attempting to connect to WPA SSID: ");
+  // ---------------------------
+  // Conexión al WiFi
+  // ---------------------------
+  Serial.print("Connecting to WiFi: ");
   Serial.println(ssid);
+
   while (WiFi.begin(ssid, pass) != WL_CONNECTED) {
-    // failed, retry
     Serial.print(".");
-    delay(5000);
+    delay(2000);
   }
 
-  Serial.println("You're connected to the network");
+  Serial.println("\nConnected to WiFi!");
   Serial.println();
 
-  Serial.print("Attempting to connect to the MQTT broker.");
+  // ---------------------------
+  // Conexión al broker MQTT
+  // ---------------------------
+  Serial.print("Connecting to MQTT broker... ");
 
   if (!mqttClient.connect(broker, port)) {
-    Serial.print("MQTT connection failed! Error code = ");
+    Serial.print("Failed! Error code = ");
     Serial.println(mqttClient.connectError());
-    while (1);
+    while (1); // Stop here
   }
 
-  Serial.println("You're connected to the MQTT broker!");
-
-  Serial.print("Subscribing to topic: ");
-  Serial.println(subscribe_topic);
-  // subscribe to a topic
-  mqttClient.subscribe(subscribe_topic);
-
-  // topics can be unsubscribed using:
-  // mqttClient.unsubscribe(topic);
-
-  Serial.print("Waiting for messages on topic: ");
-  Serial.println(subscribe_topic);
+  Serial.println("Connected to MQTT!");
 }
 
 void loop() {
-  int messageSize = mqttClient.parseMessage();
-  if (messageSize) {
-    // we received a message, print out the topic and contents
-    Serial.print("Received a message with topic '");
-    Serial.print(mqttClient.messageTopic());
-    Serial.print("', length ");
-    Serial.print(messageSize);
-    Serial.println(" bytes:");
-
-    // use the Stream interface to print the contents
-    while (mqttClient.available()) {
-      Serial.print((char)mqttClient.read());
-    }
-    Serial.println();
-  }
-
-  // send message, the Print interface can be used to set the message contents
-  delay(3000);
-  Serial.println("sending to mqtt!");
+  // ---------------------------
+  // PUBLICAR MENSAJE
+  // ---------------------------
+  delay(5000);
+  Serial.println("Sending MQTT message...");
 
   mqttClient.beginMessage(publish_topic);
   mqttClient.print("Hola chat ");
-  mqttClient.println(random(1000)); //Random value!
-  mqttClient.print(temperature);
+  mqttClient.print(num);
   mqttClient.endMessage();
-  
-  temperature += 50;
 
+  Serial.print("Sent: Hola chat ");
+  Serial.println(num);
+
+  num += 1;
 }

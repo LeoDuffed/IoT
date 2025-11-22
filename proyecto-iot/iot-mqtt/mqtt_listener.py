@@ -24,7 +24,7 @@ DB_CONFIG = {
 # Broker MQTT
 BROKER = "test.mosquitto.org"
 PORT = 1883
-TOPIC = "E6/test/message"     # == TOPIC del Arduino
+TOPIC = "umisumi/test/message"     # == TOPIC del Arduino
 
 # ---------------------------------------
 # Función para conectar a MySQL

@@ -12,7 +12,7 @@ const char broker[] = "test.mosquitto.org";
 int        port     = 1883;
 
 // SOLO publicamos
-const char publish_topic[]  = "E6/test/message";
+const char publish_topic[]  = "umisumi/test/message";
 
 int num = 0;
 

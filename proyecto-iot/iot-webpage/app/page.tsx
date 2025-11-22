@@ -5,6 +5,8 @@
 // sensores conectados:
 // luz, temperatura, gas, lluvia, presion
 
+// TODO
+// lee muy rapido, hay que hacer que se tarde mas en leer las cosas que lea por id
 
 "use client"
 

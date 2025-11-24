@@ -1,6 +1,3 @@
-// Falta arreglar glas y lluvia (humedad)
-
-
 // ======================================
 //  LIBRERÍAS NECESARIAS
 // ======================================
@@ -30,10 +27,11 @@ float tempC = 0.0;
 float pres_hPa = 0.0;
 
 // ======================================
-//  SENSOR DE LLUVIA HW-028
+//  SENSOR DE HUMEDAD (HW-028)
 // ======================================
 #define rainAnalog A1
 #define rainDigital 3
+
 int rainValue = 0;
 float rainVoltage = 0.0;
 int rainPercent = 0;
@@ -44,6 +42,8 @@ int rainPercent = 0;
 #define fotoRes A0
 int lightValue = 0;
 int lightPercent = 0;
+
+// Valores correctos que tú usaste
 int lecturaOscuro = 200;
 int lecturaLuzMax = 15000;
 
@@ -118,30 +118,41 @@ void enviarJSON(const char* type, float value) {
 void loop() {
 
   // ======================
-  // GAS
+  // GAS (CORREGIDO)
   // ======================
   gasValue = analogRead(gasPin);
+
   if (gasValue > 70) {
     digitalWrite(gasBuzzer, HIGH);
   } else {
     digitalWrite(gasBuzzer, LOW);
   }
+
   enviarJSON("gas", gasValue);
 
   // ======================
-  // LLUVIA
+  // HUMEDAD (ANTES LLUVIA)
   // ======================
   rainValue = analogRead(rainAnalog);
   rainVoltage = (rainValue * 5.0) / 16384.0;
+
+  // Mapeo correcto (igual que tu código bueno)
+  // 16383 = SECO, 0 = MOJADO
   rainPercent = map(rainValue, 16383, 0, 0, 100);
-  enviarJSON("lluvia", rainPercent);
+
+  if (rainPercent < 0) rainPercent = 0;
+  if (rainPercent > 100) rainPercent = 100;
+
+  enviarJSON("humedad", rainPercent);
 
   // ======================
-  // LUZ
+  // LUZ (CORREGIDO)
   // ======================
   lightValue = analogRead(fotoRes);
   lightPercent = map(lightValue, lecturaOscuro, lecturaLuzMax, 0, 100);
+
   lightPercent = constrain(lightPercent, 0, 100);
+
   enviarJSON("luz", lightPercent);
 
   // ======================
@@ -158,7 +169,7 @@ void loop() {
   // ======================
   Serial.println("=====================================");
   Serial.print("Gas: "); Serial.println(gasValue);
-  Serial.print("Lluvia: "); Serial.println(rainPercent);
+  Serial.print("Humedad: "); Serial.println(rainPercent);
   Serial.print("Luz: "); Serial.println(lightPercent);
   Serial.print("Temp: "); Serial.println(tempC);
   Serial.print("Pres: "); Serial.println(pres_hPa);

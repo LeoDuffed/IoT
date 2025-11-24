@@ -6,9 +6,6 @@ from mysql.connector import Error
 from dotenv import load_dotenv
 from paho.mqtt import client as mqtt
 
-# ---------------------------------------
-# Cargar variables del archivo .env
-# ---------------------------------------
 load_dotenv()
 
 DB_CONFIG = {
@@ -46,7 +43,6 @@ def insert_measurement(sensor_type: str, value: float):
         conn = get_connection()
         cursor = conn.cursor()
 
-        # OJO: el nombre de la tabla se inserta en el SQL ya validado
         query = f"""
             INSERT INTO {sensor_type} (valor, hora_medicion)
             VALUES (%s, NOW());

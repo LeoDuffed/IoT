@@ -43,7 +43,8 @@ def get_connection():
     return mysql.connector.connect(**DB_CONFIG, use_pure=True)
 
 def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
-    """Convierte Decimal y datetime en tipos serializables."""
+    if row is None:
+        return None
     value = row.get("value")
     if isinstance(value, Decimal):
         value = float(value)
@@ -51,35 +52,38 @@ def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
     time_value = row.get("time")
     if isinstance(time_value, datetime):
         time_value = time_value.isoformat()
-    elif time_value is not None:
+    elif time_value is not Node:
         time_value = str(time_value)
 
-    return {"value": value, "time": time_value}
+    return{
+        "id": row.get("id"),
+        "value": value,
+        "time": time_value,
+    }
 
 def get_latest_measurement(table_name: str) -> Optional[dict[str, Any]]:
-    """Regresa el último registro de una tabla."""
     conn = None
     cursor = None
     try:
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         query = f"""
-            SELECT valor AS value, hora_medicion AS time
+            SELECT id, valor AS value, hora_medicion AS time
             FROM {table_name}
-            ORDER BY hora_medicion DESC
+            ORDER BY id DESC
             LIMIT 1;
         """
         cursor.execute(query)
         row = cursor.fetchone()
         return normalize_row(row) if row else None
-
     except Error as e:
-        print(f"[MySQL ERROR] {e}")
+        print(f"[MySQL Error] {e}")
         return None
-
     finally:
-        if cursor: cursor.close()
-        if conn: conn.close()
+        if cursor:
+            cursor.close()
+        if conn: 
+            conn.close()
 
 # -------------------------------
 # WEBSOCKET TIEMPO REAL

@@ -35,11 +35,13 @@ import {
 } from "recharts"
 
 type ApiPoint = {
+  id: number
   value: number
   time: string
 }
 
 type ChartPoint = {
+  id: number
   value: number
   time: string
   isoTime: string
@@ -63,6 +65,7 @@ const normalizePoint = (point: ApiPoint): ChartPoint => {
   const dateValue = rawTime ? new Date(isoTime) : null
 
   return {
+    id: point.id,
     value: point.value,
     isoTime,
     time: dateValue
@@ -82,51 +85,50 @@ export default function Home() {
   const [luzData, setLuzData] = useState<ChartPoint[]>([])
   const [gasData, setGasData] = useState<ChartPoint[]>([])
 
+  const insertById = (prev: ChartPoint[], p: ChartPoint, maxLen = 200) =>{
+    if(!p || p.id == null) return prev
+    if(prev.length > 0 && prev[prev.length - 1].id == p.id){
+      const copy = prev.slice(0, -1)
+      return[...copy, p]
+    }
+    return[...prev, p].slice(-maxLen)
+  }
+
   useEffect(() => {
     const wsUrl = API_BASE.replace("http", "ws") + "/ws"
     const ws = new WebSocket(wsUrl)
-
-    console.log("Conectando a WebSocket:", wsUrl)
 
     ws.onmessage = (event) => {
       try {
         const data: WsPayload = JSON.parse(event.data)
 
         if (data.temperatura) {
-          const p = normalizePoint(data.temperatura)
-          setTempData((prev) => [...prev, p].slice(-200))
+          const p = normalizePoint(data.temperatura as ApiPoint)
+          setTempData((prev) => insertById(prev, p))
         }
 
         if (data.humedad) {
           const p = normalizePoint(data.humedad)
-          setHumData((prev) => [...prev, p].slice(-200))
+          setHumData((prev) => insertById(prev, p))
         }
 
         if (data.presion) {
           const p = normalizePoint(data.presion)
-          setPresData((prev) => [...prev, p].slice(-200))
+          setPresData((prev) => insertById(prev, p))
         }
 
         if (data.luz) {
           const p = normalizePoint(data.luz)
-          setLuzData((prev) => [...prev, p].slice(-200))
+          setLuzData((prev) => insertById(prev, p))
         }
 
         if (data.gas) {
           const p = normalizePoint(data.gas)
-          setGasData((prev) => [...prev, p].slice(-200))
+          setGasData((prev) => insertById(prev, p))
         }
       } catch (err) {
         console.error("Error parseando mensaje de WS:", err)
       }
-    }
-
-    ws.onerror = (err) => {
-      console.error("WebSocket error:", err)
-    }
-
-    ws.onclose = () => {
-      console.log("WebSocket cerrado")
     }
 
     return () => {

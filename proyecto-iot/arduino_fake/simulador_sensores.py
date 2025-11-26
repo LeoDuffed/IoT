@@ -81,9 +81,9 @@ def main():
                 else:
                     print(f"❌ Error al publicar en {TOPIC}: {payload}")
 
-                time.sleep(0.5)
+                time.sleep(1.5)
 
-            time.sleep(1)
+            time.sleep(6)
 
     except KeyboardInterrupt:
         print("\n🛑 Simulador detenido por el usuario.")

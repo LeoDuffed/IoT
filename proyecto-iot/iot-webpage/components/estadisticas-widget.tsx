@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 
 type StatsRowProps = {
-  data: { value: number }[] // ChartPoint es compatible estructuralmente
+  data: { value: number }[] 
   unit: string
 }
 

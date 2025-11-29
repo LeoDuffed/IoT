@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 import os
-from typing import Any, Optional
+from typing import Any, Optional, List
 import asyncio
 
 import mysql.connector
@@ -52,10 +52,11 @@ def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
     time_value = row.get("time")
     if isinstance(time_value, datetime):
         time_value = time_value.isoformat()
-    elif time_value is not Node:
+    # 🔧 aquí había un typo: Node -> None
+    elif time_value is not None:
         time_value = str(time_value)
 
-    return{
+    return {
         "id": row.get("id"),
         "value": value,
         "time": time_value,
@@ -82,8 +83,60 @@ def get_latest_measurement(table_name: str) -> Optional[dict[str, Any]]:
     finally:
         if cursor:
             cursor.close()
-        if conn: 
+        if conn:
             conn.close()
+
+def get_measurements(table_name: str, limit: int = 200) -> List[dict[str, Any]]:
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        # Traemos las últimas `limit` mediciones y luego las ordenamos cronológicamente
+        query = f"""
+            SELECT id, valor AS value, hora_medicion AS time
+            FROM {table_name}
+            ORDER BY id DESC
+            LIMIT %s;
+        """
+        cursor.execute(query, (limit,))
+        rows = cursor.fetchall() or []
+        normalized = [normalize_row(r) for r in rows]
+        # Las devolvemos ascendente en el tiempo
+        normalized.reverse()
+        return normalized
+    except Error as e:
+        print(f"[MySQL Error] {e}")
+        return []
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+# -------------------------------
+# ENDPOINTS REST PARA HISTÓRICO
+# -------------------------------
+
+@app.get("/temperatura")
+def list_temperatura(limit: int = 200):
+    return get_measurements("temperatura", limit)
+
+@app.get("/humedad")
+def list_humedad(limit: int = 200):
+    return get_measurements("humedad", limit)
+
+@app.get("/presion")
+def list_presion(limit: int = 200):
+    return get_measurements("presion", limit)
+
+@app.get("/luz")
+def list_luz(limit: int = 200):
+    return get_measurements("luz", limit)
+
+@app.get("/gas")
+def list_gas(limit: int = 200):
+    return get_measurements("gas", limit)
 
 # -------------------------------
 # WEBSOCKET TIEMPO REAL
@@ -96,7 +149,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         while True:
-
             payload = {
                 "temperatura": get_latest_measurement("temperatura"),
                 "humedad": get_latest_measurement("humedad"),

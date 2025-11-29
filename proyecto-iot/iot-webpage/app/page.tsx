@@ -45,21 +45,20 @@ type WsPayload = {
   gas?: ApiPoint | null
 }
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
+
+const MAX_POINTS = 200
 
 const normalizePoint = (point: ApiPoint): ChartPoint => {
   const rawTime = point.time ?? ""
-  const isoTime =
-    rawTime && rawTime.includes("T") ? rawTime : rawTime.replace(" ", "T")
+  const isoTime = rawTime && rawTime.includes("T") ? rawTime : rawTime.replace(" ", "T")
   const dateValue = rawTime ? new Date(isoTime) : null
 
   return {
     id: point.id,
     value: point.value,
     isoTime,
-    time: dateValue
-      ? dateValue.toLocaleTimeString("es-MX", {
+    time: dateValue ? dateValue.toLocaleTimeString("es-MX", {
           hour: "2-digit",
           minute: "2-digit",
           hour12: false,
@@ -162,6 +161,20 @@ function StatsRow({ data, unit }: StatsRowProps) {
   )
 }
 
+async function fetchHistory(
+  path: string,
+  setter: (data: ChartPoint[]) => void,
+) {
+  try{
+    const res = await fetch(`${API_BASE}${path}`)
+    const json: ApiPoint[] = await res.json()
+    const normalized = json.map(normalizePoint)
+    setter(normalized.slice(-MAX_POINTS))
+  } catch (err){
+    console.error("Error haciendo fetch de", path, err)
+  }
+}
+
 export default function Home() {
   const [humData, setHumData] = useState<ChartPoint[]>([])
   const [tempData, setTempData] = useState<ChartPoint[]>([])
@@ -186,6 +199,14 @@ export default function Home() {
     setNow(new Date())
     const timer = setInterval(() => setNow(new Date()), 60000)
     return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    fetchHistory("/temperatura?limit=200", setTempData)
+    fetchHistory("/humedad?limit=200", setHumData)
+    fetchHistory("/presion?limit=200", setPresData)
+    fetchHistory("/luz?limit=200", setLuzData)
+    fetchHistory("/gas?limit=200", setGasData)
   }, [])
 
   useEffect(() => {
@@ -259,37 +280,6 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-sky-100 text-slate-50">
       <div className="min-h-screen flex">
-        {/* Sidebar */}
-        <aside className="hidden md:flex w-56 flex-col border-r border-slate-600 bg-slate-700 backdrop-blur">
-          <div className="px-5 py-6">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-2xl bg-pink-400 flex items-center justify-center text-xl">
-                🏠
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">Proyecto IoT</p>
-                <p className="text-sm font-semibold text-slate-50">
-                  Casa inteligente
-                </p>
-              </div>
-            </div>
-          </div>
-          <nav className="flex-1 px-3 space-y-1 text-sm text-slate-300">
-            <button className="w-full text-left px-3 py-2 rounded-xl bg-slate-900 text-slate-50 font-medium">
-              Dashboard
-            </button>
-            <button className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-900/60">
-              Gráficas
-            </button>
-            <button className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-900/60">
-              Alertas
-            </button>
-          </nav>
-          <div className="px-4 py-4 text-xs text-slate-500">
-            <p>Hecho por Duffed</p>
-          </div>
-        </aside>
-
         {/* Contenido principal */}
         <div className="flex-1">
           <div className="max-w-6xl mx-auto px-4 py-6 md:py-8 space-y-6">

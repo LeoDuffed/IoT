@@ -23,6 +23,8 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts"
+import { EstadisticasWidget } from "@/components/estadisticas-widget"
+import { ResumenWidget } from "@/components/resumen-widget"
 
 type ApiPoint = {
   id: number
@@ -45,20 +47,26 @@ type WsPayload = {
   gas?: ApiPoint | null
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
 
 const MAX_POINTS = 200
 
 const normalizePoint = (point: ApiPoint): ChartPoint => {
   const rawTime = point.time ?? ""
-  const isoTime = rawTime && rawTime.includes("T") ? rawTime : rawTime.replace(" ", "T")
+  const isoTime =
+    rawTime && rawTime.includes("T") ? rawTime : rawTime.replace(" ", "T")
   const dateValue = rawTime ? new Date(isoTime) : null
+
+  const numericValue =
+    typeof point.value === "number" ? point.value : Number(point.value)
 
   return {
     id: point.id,
-    value: point.value,
+    value: numericValue,
     isoTime,
-    time: dateValue ? dateValue.toLocaleTimeString("es-MX", {
+    time: dateValue
+      ? dateValue.toLocaleTimeString("es-MX", {
           hour: "2-digit",
           minute: "2-digit",
           hour12: false,
@@ -71,106 +79,16 @@ const normalizePoint = (point: ApiPoint): ChartPoint => {
 const getLatest = (data: ChartPoint[]) =>
   data.length > 0 ? data[data.length - 1] : null
 
-const computeStats = (data: ChartPoint[]) => {
-  if (data.length === 0) return null
-  let min = data[0].value
-  let max = data[0].value
-  let sum = 0
-
-  for (const p of data) {
-    if (p.value < min) min = p.value
-    if (p.value > max) max = p.value
-    sum += p.value
-  }
-
-  const avg = sum / data.length
-  return { min, max, avg, count: data.length }
-}
-
-type SummaryCardProps = {
-  label: string
-  value: string
-  subtitle?: string
-  emoji?: string
-}
-
-function SummaryCard({ label, value, subtitle }: SummaryCardProps) {
-  return (
-    <Card className="bg-slate-900/70 border-slate-700 shadow-lg shadow-slate-950/40 hover:shadow-slate-950/70 transition-all duration-200 hover:-translate-y-0.5">
-      <CardContent className="py-4 px-4 flex items-center justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <span className="text-sm uppercase tracking-wide text-white">
-            {label}
-          </span>
-          <span className="text-2xl font-semibold text-slate-100 leading-tight">
-            {value}
-          </span>
-          {subtitle && (
-            <span className="text-xs text-slate-400">{subtitle}</span>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-type StatsRowProps = {
-  data: ChartPoint[]
-  unit: string
-}
-
-function StatsRow({ data, unit }: StatsRowProps) {
-  const stats = computeStats(data)
-  if (!stats) return null
-
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-      <Card className="bg-slate-900/50 border-slate-800">
-        <CardContent className="py-3 px-3">
-          <p className="text-sm font-bold text-white">Mínimo</p>
-          <p className="text-sm font-semibold text-slate-50">
-            {stats.min.toFixed(1)} {unit}
-          </p>
-        </CardContent>
-      </Card>
-      <Card className="bg-slate-900/50 border-slate-800">
-        <CardContent className="py-3 px-3">
-          <p className="text-sm font-bold text-white">Máximo</p>
-          <p className="text-sm font-semibold text-slate-50">
-            {stats.max.toFixed(1)} {unit}
-          </p>
-        </CardContent>
-      </Card>
-      <Card className="bg-slate-900/50 border-slate-800">
-        <CardContent className="py-3 px-3">
-          <p className="text-sm font-bold text-white">Promedio</p>
-          <p className="text-sm font-semibold text-slate-50">
-            {stats.avg.toFixed(1)} {unit}
-          </p>
-        </CardContent>
-      </Card>
-      <Card className="bg-slate-900/50 border-slate-800">
-        <CardContent className="py-3 px-3">
-          <p className="text-sm font-bold text-white">Muestras</p>
-          <p className="text-sm font-semibold text-slate-50">
-            {stats.count}
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
 async function fetchHistory(
   path: string,
   setter: (data: ChartPoint[]) => void,
 ) {
-  try{
+  try {
     const res = await fetch(`${API_BASE}${path}`)
     const json: ApiPoint[] = await res.json()
     const normalized = json.map(normalizePoint)
     setter(normalized.slice(-MAX_POINTS))
-  } catch (err){
+  } catch (err) {
     console.error("Error haciendo fetch de", path, err)
   }
 }
@@ -213,17 +131,9 @@ export default function Home() {
     const wsUrl = API_BASE.replace("http", "ws") + "/ws"
     const ws = new WebSocket(wsUrl)
 
-    ws.onopen = () => {
-      setIsOnline(true)
-    }
-
-    ws.onclose = () => {
-      setIsOnline(false)
-    }
-
-    ws.onerror = () => {
-      setIsOnline(false)
-    }
+    ws.onopen = () => setIsOnline(true)
+    ws.onclose = () => setIsOnline(false)
+    ws.onerror = () => setIsOnline(false)
 
     ws.onmessage = (event) => {
       try {
@@ -233,22 +143,18 @@ export default function Home() {
           const p = normalizePoint(data.temperatura as ApiPoint)
           setTempData((prev) => insertById(prev, p))
         }
-
         if (data.humedad) {
           const p = normalizePoint(data.humedad)
           setHumData((prev) => insertById(prev, p))
         }
-
         if (data.presion) {
           const p = normalizePoint(data.presion)
           setPresData((prev) => insertById(prev, p))
         }
-
         if (data.luz) {
           const p = normalizePoint(data.luz)
           setLuzData((prev) => insertById(prev, p))
         }
-
         if (data.gas) {
           const p = normalizePoint(data.gas)
           setGasData((prev) => insertById(prev, p))
@@ -315,20 +221,18 @@ export default function Home() {
 
             <Separator className="bg-slate-800" />
 
-            {/* Mini resumen */}
+            {/* Resumen */}
             <section className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              <SummaryCard
+              <ResumenWidget
                 label="Temperatura"
                 value={
-                  latestTemp
-                    ? `${latestTemp.value.toFixed(1)} °C`
-                    : "-- °C"
+                  latestTemp ? `${latestTemp.value.toFixed(1)} °C` : "-- °C"
                 }
                 subtitle={
                   latestTemp ? `Último dato · ${latestTemp.time}` : "Sin datos"
                 }
               />
-              <SummaryCard
+              <ResumenWidget
                 label="Humedad"
                 value={
                   latestHum ? `${latestHum.value.toFixed(1)} %` : "-- %"
@@ -337,7 +241,7 @@ export default function Home() {
                   latestHum ? `Último dato · ${latestHum.time}` : "Sin datos"
                 }
               />
-              <SummaryCard
+              <ResumenWidget
                 label="Presión"
                 value={
                   latestPres
@@ -348,7 +252,7 @@ export default function Home() {
                   latestPres ? `Último dato · ${latestPres.time}` : "Sin datos"
                 }
               />
-              <SummaryCard
+              <ResumenWidget
                 label="Luz"
                 value={
                   latestLuz ? `${latestLuz.value.toFixed(1)} %` : "-- %"
@@ -357,7 +261,7 @@ export default function Home() {
                   latestLuz ? `Último dato · ${latestLuz.time}` : "Sin datos"
                 }
               />
-              <SummaryCard
+              <ResumenWidget
                 label="Gas"
                 value={
                   latestGas ? `${latestGas.value.toFixed(1)} %` : "-- %"
@@ -368,7 +272,7 @@ export default function Home() {
               />
             </section>
 
-            {/* Graficas sensores */}
+            {/* Tabs + gráficas */}
             <section>
               <Tabs defaultValue="temp" className="w-full">
                 <TabsList className="bg-slate-800 border border-slate-800 rounded-full p-1 gap-1">
@@ -406,7 +310,7 @@ export default function Home() {
 
                 {/* Temperatura */}
                 <TabsContent value="temp" className="mt-4 space-y-3">
-                  <StatsRow data={tempData} unit="°C" />
+                  <EstadisticasWidget data={tempData} unit="°C" />
                   <Card className="bg-slate-900/70 border-slate-800 shadow-lg">
                     <CardHeader>
                       <CardTitle className="flex items-baseline justify-between">
@@ -466,7 +370,7 @@ export default function Home() {
 
                 {/* Humedad */}
                 <TabsContent value="hum" className="mt-4 space-y-3">
-                  <StatsRow data={humData} unit="%" />
+                  <EstadisticasWidget data={humData} unit="%" />
                   <Card className="bg-slate-900/70 border-slate-800 shadow-lg">
                     <CardHeader>
                       <CardTitle className="flex items-baseline justify-between">
@@ -526,7 +430,7 @@ export default function Home() {
 
                 {/* Presión */}
                 <TabsContent value="pres" className="mt-4 space-y-3">
-                  <StatsRow data={presData} unit="hPa" />
+                  <EstadisticasWidget data={presData} unit="hPa" />
                   <Card className="bg-slate-900/70 border-slate-800 shadow-lg">
                     <CardHeader>
                       <CardTitle className="flex items-baseline justify-between">
@@ -586,7 +490,7 @@ export default function Home() {
 
                 {/* Luz */}
                 <TabsContent value="luz" className="mt-4 space-y-3">
-                  <StatsRow data={luzData} unit="%" />
+                  <EstadisticasWidget data={luzData} unit="%" />
                   <Card className="bg-slate-900/70 border-slate-800 shadow-lg">
                     <CardHeader>
                       <CardTitle className="flex items-baseline justify-between">
@@ -646,7 +550,7 @@ export default function Home() {
 
                 {/* Gas */}
                 <TabsContent value="gas" className="mt-4 space-y-3">
-                  <StatsRow data={gasData} unit="%" />
+                  <EstadisticasWidget data={gasData} unit="%" />
                   <Card className="bg-slate-900/70 border-slate-800 shadow-lg">
                     <CardHeader>
                       <CardTitle className="flex items-baseline justify-between">

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import SingleSensorChart from "@/components/grafica_sensor"
+import SingleSensorChart from "@/components/grafica-sensor"
 import type { ApiPoint, ChartPoint } from "@/types/sensor"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"

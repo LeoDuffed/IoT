@@ -100,10 +100,10 @@ function SummaryCard({ label, value, subtitle }: SummaryCardProps) {
     <Card className="bg-slate-900/70 border-slate-700 shadow-lg shadow-slate-950/40 hover:shadow-slate-950/70 transition-all duration-200 hover:-translate-y-0.5">
       <CardContent className="py-4 px-4 flex items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-wide text-slate-400">
+          <span className="text-sm uppercase tracking-wide text-white">
             {label}
           </span>
-          <span className="text-2xl font-semibold text-slate-50 leading-tight">
+          <span className="text-2xl font-semibold text-slate-100 leading-tight">
             {value}
           </span>
           {subtitle && (
@@ -128,7 +128,7 @@ function StatsRow({ data, unit }: StatsRowProps) {
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
       <Card className="bg-slate-900/50 border-slate-800">
         <CardContent className="py-3 px-3">
-          <p className="text-xs text-slate-400">Mínimo</p>
+          <p className="text-sm font-bold text-white">Mínimo</p>
           <p className="text-sm font-semibold text-slate-50">
             {stats.min.toFixed(1)} {unit}
           </p>
@@ -136,7 +136,7 @@ function StatsRow({ data, unit }: StatsRowProps) {
       </Card>
       <Card className="bg-slate-900/50 border-slate-800">
         <CardContent className="py-3 px-3">
-          <p className="text-xs text-slate-400">Máximo</p>
+          <p className="text-sm font-bold text-white">Máximo</p>
           <p className="text-sm font-semibold text-slate-50">
             {stats.max.toFixed(1)} {unit}
           </p>
@@ -144,7 +144,7 @@ function StatsRow({ data, unit }: StatsRowProps) {
       </Card>
       <Card className="bg-slate-900/50 border-slate-800">
         <CardContent className="py-3 px-3">
-          <p className="text-xs text-slate-400">Promedio</p>
+          <p className="text-sm font-bold text-white">Promedio</p>
           <p className="text-sm font-semibold text-slate-50">
             {stats.avg.toFixed(1)} {unit}
           </p>
@@ -152,7 +152,7 @@ function StatsRow({ data, unit }: StatsRowProps) {
       </Card>
       <Card className="bg-slate-900/50 border-slate-800">
         <CardContent className="py-3 px-3">
-          <p className="text-xs text-slate-400">Muestras</p>
+          <p className="text-sm font-bold text-white">Muestras</p>
           <p className="text-sm font-semibold text-slate-50">
             {stats.count}
           </p>
@@ -260,7 +260,7 @@ export default function Home() {
     <main className="min-h-screen bg-sky-100 text-slate-50">
       <div className="min-h-screen flex">
         {/* Sidebar */}
-        <aside className="hidden md:flex w-56 flex-col border-r border-slate-600 bg-slate-950/80 backdrop-blur">
+        <aside className="hidden md:flex w-56 flex-col border-r border-slate-600 bg-slate-700 backdrop-blur">
           <div className="px-5 py-6">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-2xl bg-pink-400 flex items-center justify-center text-xl">

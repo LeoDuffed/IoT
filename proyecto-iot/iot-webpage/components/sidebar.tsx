@@ -12,7 +12,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/" },
   { label: "Gráficas", href: "/graficas" },
-  //{ label: "Alertas", href: "/alertas" },
+  //{ label: "Alertas", href: "/alertas" }, No me gusta como esta quedando
 ]
 
 export function SidebarNav() {
@@ -35,7 +35,7 @@ export function SidebarNav() {
         </div>
       </div>
 
-      {/* Navegación */}
+      {/* links */}
       <nav className="flex-1 px-3 pt-7 space-y-1 text text-white">
         {navItems.map((item) => {
           const active = pathname === item.href
@@ -56,7 +56,7 @@ export function SidebarNav() {
         })}
       </nav>
 
-      {/* Footer del sidebar */}
+      {/* Footer */}
       <div className="px-4 py-4 text-xs text-slate-500">
         <p>Hecho por Duffed</p>
       </div>

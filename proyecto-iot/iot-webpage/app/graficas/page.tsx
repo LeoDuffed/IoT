@@ -1,34 +1,11 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card"
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts"
+import { useEffect, useState } from "react"
+import SingleSensorChart from "@/components/grafica_sensor"
+import type { ApiPoint, ChartPoint } from "@/types/sensor"
 
-type ApiPoint = {
-  id: number
-  value: number
-  time: string
-}
-
-type ChartPoint = {
-  id: number
-  value: number
-  time: string   
-  isoTime: string 
-}
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
+const MAX_POINTS = 200
 
 type WsPayload = {
   temperatura?: ApiPoint | null
@@ -37,10 +14,6 @@ type WsPayload = {
   luz?: ApiPoint | null
   gas?: ApiPoint | null
 }
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
-
-const MAX_POINTS = 200
 
 const normalizePoint = (point: ApiPoint): ChartPoint => {
   const rawTime = point.time ?? ""
@@ -58,68 +31,6 @@ const normalizePoint = (point: ApiPoint): ChartPoint => {
         })
       : "--:--",
   }
-}
-
-// Gráfica individual reutilizable
-type SingleSensorChartProps = {
-  label: string
-  unit: string
-  data: ChartPoint[]
-  lineColor: string
-}
-
-function SingleSensorChart({
-  label,
-  unit,
-  data,
-  lineColor,
-}: SingleSensorChartProps) {
-  return (
-    <Card className="bg-slate-900/70 border-slate-800 shadow-lg">
-      <CardHeader>
-        <CardTitle className="flex items-baseline justify-between">
-          <span className="text-sm font-medium text-slate-200">
-            {label} ({unit})
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="h-60">
-        {data.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-sm text-slate-500">
-            Esperando datos...
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-              <XAxis
-                dataKey="time"
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-              />
-              <YAxis tick={{ fontSize: 12, fill: "#9ca3af" }} width={40} />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: 12,
-                  border: "1px solid #1f2937",
-                  fontSize: 12,
-                  backgroundColor: "#020617",
-                  color: "#e5e7eb",
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke={lineColor}
-                strokeWidth={2}
-                dot={{ r: 2 }}
-                activeDot={{ r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </CardContent>
-    </Card>
-  )
 }
 
 async function fetchHistory(
@@ -200,14 +111,12 @@ export default function GraficasPage() {
 
   return (
     <main className="min-h-screen bg-sky-100 p-10">
-      {/* Header */}
       <section className="space-y-4 pb-7">
         <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-black">
           Gráficas de sensores
         </h1>
       </section>
 
-      {/* Gráficas individuales */}
       <section className="space-y-3">
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
           <SingleSensorChart
@@ -216,24 +125,28 @@ export default function GraficasPage() {
             data={tempData}
             lineColor="#22c55e"
           />
+
           <SingleSensorChart
             label="Humedad"
             unit="%"
             data={humData}
             lineColor="#0ea5e9"
           />
+
           <SingleSensorChart
             label="Presión"
             unit="hPa"
             data={presData}
             lineColor="#eab308"
           />
+
           <SingleSensorChart
             label="Luz"
             unit="%"
             data={luzData}
             lineColor="#a855f7"
           />
+
           <SingleSensorChart
             label="Gas"
             unit="%"

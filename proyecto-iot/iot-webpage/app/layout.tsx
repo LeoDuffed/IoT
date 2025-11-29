@@ -12,10 +12,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="es">
       <body className="min-h-screen bg-slate-950 text-slate-50">
         <div className="min-h-screen flex">
-          {/* Sidebar fija */}
           <SidebarNav />
-
-          {/* Contenido principal de cada página */}
           <div className="flex-1">
             <div >
               {children}

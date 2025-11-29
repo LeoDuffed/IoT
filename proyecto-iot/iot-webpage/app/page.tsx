@@ -195,7 +195,7 @@ export default function Home() {
   }
 
   useEffect(() => {
-    // Reloj simple para el header
+    // Reloj simple
     setNow(new Date())
     const timer = setInterval(() => setNow(new Date()), 60000)
     return () => clearInterval(timer)
@@ -283,7 +283,7 @@ export default function Home() {
         {/* Contenido principal */}
         <div className="flex-1">
           <div className="max-w-6xl mx-auto px-4 py-6 md:py-8 space-y-6">
-            {/* Header / Hero */}
+            {/* Hero */}
             <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-black">
@@ -315,7 +315,7 @@ export default function Home() {
 
             <Separator className="bg-slate-800" />
 
-            {/* Tarjetas resumen principales */}
+            {/* Mini resumen */}
             <section className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               <SummaryCard
                 label="Temperatura"
@@ -368,7 +368,7 @@ export default function Home() {
               />
             </section>
 
-            {/* Tabs + gráficas + stats por sensor */}
+            {/* Graficas sensores */}
             <section>
               <Tabs defaultValue="temp" className="w-full">
                 <TabsList className="bg-slate-800 border border-slate-800 rounded-full p-1 gap-1">

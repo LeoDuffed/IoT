@@ -1,10 +1,12 @@
+// Falta arreglar el codigo de la lluvia 
+
 // ======================================
 //  LIBRERÍAS NECESARIAS
 // ======================================
 #include <Wire.h>
 #include <Adafruit_BMP280.h>
 #include "WiFiS3.h"
-#include <ArduinoMqttClient.h>
+#include "ArduinoMqttClient.h"
 
 // ======================================
 //  WIFI + MQTT CONFIG
@@ -42,10 +44,8 @@ int rainPercent = 0;
 #define fotoRes A0
 int lightValue = 0;
 int lightPercent = 0;
-
-// Valores correctos que tú usaste
 int lecturaOscuro = 200;
-int lecturaLuzMax = 15000;
+int lecturaLuzMax = 15000;  // ajústalo si quieres
 
 // ======================================
 //  SENSOR DE GAS (MQ-x) + BUZZER
@@ -55,25 +55,34 @@ int lecturaLuzMax = 15000;
 int gasValue = 0;
 
 // ======================================
+//  PROTOTIPO FUNCIÓN MQTT
+// ======================================
+void enviarJSON(const char* type, float value);
+
+// ======================================
 //  SETUP
 // ======================================
 void setup() {
   Serial.begin(115200);
-  Wire.begin();
+  while (!Serial) {;}
 
-  analogReadResolution(14);
+  Wire.begin();
+  analogReadResolution(14);   // 0–16383
 
   pinMode(rainDigital, INPUT);
   pinMode(gasPin, INPUT);
   pinMode(gasBuzzer, OUTPUT);
 
   // ---- BMP280 ----
+  Serial.println(F("Iniciando BMP280..."));
   if (!bmp.begin(0x76)) {
+    Serial.println(F("No se encontro BMP280 en 0x76, probando 0x77..."));
     if (!bmp.begin(0x77)) {
-      Serial.println("ERROR BMP280");
-      while (1);
+      Serial.println(F("Error: no se pudo encontrar BMP280 :("));
+      while (1) { delay(100); }
     }
   }
+  Serial.println(F("BMP280 OK!"));
 
   // ---------------------------------
   // WiFi
@@ -81,22 +90,51 @@ void setup() {
   Serial.print("Connecting to WiFi: ");
   Serial.println(ssid);
 
-  while (WiFi.begin(ssid, pass) != WL_CONNECTED) {
+  WiFi.begin(ssid, pass);
+  while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
-    delay(2000);
+    delay(1000);
   }
   Serial.println("\nWiFi conectado!");
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP());
+
+  // ---------------------------------
+  // Probar conexión TCP al broker
+  // ---------------------------------
+  Serial.print("Probando TCP al broker: ");
+  Serial.println(broker);
+  if (!wifiClient.connect(broker, port)) {
+    Serial.println("❌ No se pudo abrir conexión TCP al broker");
+  } else {
+    Serial.println("✅ TCP OK, cierro y sigo con MQTT");
+    wifiClient.stop();
+  }
 
   // ---------------------------------
   // MQTT
   // ---------------------------------
-  Serial.print("Connecting to MQTT...");
-  if (!mqttClient.connect(broker, port)) {
-    Serial.print("Error MQTT = ");
+  mqttClient.setId("arduino-sensores-casa-1");
+
+  Serial.print("Connecting to MQTT broker: ");
+  Serial.println(broker);
+
+  int intentos = 0;
+  while (!mqttClient.connect(broker, port)) {
+    Serial.print("MQTT connection failed! Error code = ");
     Serial.println(mqttClient.connectError());
-    while (1);
+    intentos++;
+
+    if (intentos >= 3) {
+      Serial.println("No se pudo conectar a MQTT después de 3 intentos. Me quedo aquí.");
+      while (1);
+    }
+
+    Serial.println("Reintentando en 3 segundos...");
+    delay(3000);
   }
-  Serial.println("MQTT conectado!");
+
+  Serial.println("✅ MQTT conectado!");
 }
 
 // ======================================
@@ -116,9 +154,11 @@ void enviarJSON(const char* type, float value) {
 //  LOOP PRINCIPAL
 // ======================================
 void loop() {
+  // Mantener viva la conexión MQTT
+  mqttClient.poll();
 
   // ======================
-  // GAS (CORREGIDO)
+  // GAS
   // ======================
   gasValue = analogRead(gasPin);
 
@@ -131,27 +171,24 @@ void loop() {
   enviarJSON("gas", gasValue);
 
   // ======================
-  // HUMEDAD (ANTES LLUVIA)
+  // HUMEDAD (sensor de lluvia HW-028)
   // ======================
   rainValue = analogRead(rainAnalog);
   rainVoltage = (rainValue * 5.0) / 16384.0;
 
-  // Mapeo correcto (igual que tu código bueno)
-  // 16383 = SECO, 0 = MOJADO
-  rainPercent = map(rainValue, 16383, 0, 0, 100);
-
-  if (rainPercent < 0) rainPercent = 0;
-  if (rainPercent > 100) rainPercent = 100;
+  // AHORA: 0 (seco) -> 0 %, 16383 (muy mojado) -> 100 %
+  rainPercent = map(rainValue, 0, 16383, 0, 100);
+  rainPercent = constrain(rainPercent, 0, 100);
 
   enviarJSON("humedad", rainPercent);
 
   // ======================
-  // LUZ (CORREGIDO)
+  // LUZ (LDR)
   // ======================
   lightValue = analogRead(fotoRes);
   lightPercent = map(lightValue, lecturaOscuro, lecturaLuzMax, 0, 100);
-
   lightPercent = constrain(lightPercent, 0, 100);
+  lightPercent = lightPercent - 30;
 
   enviarJSON("luz", lightPercent);
 
@@ -159,20 +196,26 @@ void loop() {
   // BMP280 (Temp + Presion)
   // ======================
   tempC = bmp.readTemperature();
-  pres_hPa = bmp.readPressure() / 100.0;
+  pres_hPa = bmp.readPressure() / 100.0F;
 
   enviarJSON("temperatura", tempC);
   enviarJSON("presion", pres_hPa);
 
   // ======================
-  // DEBUG
+  // DEBUG EN SERIE
   // ======================
   Serial.println("=====================================");
-  Serial.print("Gas: "); Serial.println(gasValue);
-  Serial.print("Humedad: "); Serial.println(rainPercent);
-  Serial.print("Luz: "); Serial.println(lightPercent);
-  Serial.print("Temp: "); Serial.println(tempC);
-  Serial.print("Pres: "); Serial.println(pres_hPa);
+  Serial.print("Gas raw: "); Serial.println(gasValue);
+
+  Serial.print("Rain raw: "); Serial.print(rainValue);
+  Serial.print("  | Rain V: "); Serial.print(rainVoltage, 3);
+  Serial.print(" V  | Rain %: "); Serial.println(rainPercent);
+
+  Serial.print("Luz raw: "); Serial.print(lightValue);
+  Serial.print("  | Luz %: "); Serial.println(lightPercent);
+
+  Serial.print("Temp: "); Serial.print(tempC); Serial.println(" C");
+  Serial.print("Pres: "); Serial.print(pres_hPa); Serial.println(" hPa");
   Serial.println("=====================================\n");
 
   delay(1500);

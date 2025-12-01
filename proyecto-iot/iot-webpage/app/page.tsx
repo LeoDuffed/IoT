@@ -1,3 +1,8 @@
+// [gas, humedad, temperatura, humedad, presion] -> conectado por MQTT
+// servo tendedero -> humedad, servo pluma -> distancia
+// 3 leds ariba -> boton, 2 led abajo -> boton
+// distancia -> detectar carro y abrir la pluma, 
+
 "use client"
 
 import { useEffect, useState } from "react"

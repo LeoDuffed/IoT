@@ -1,16 +1,54 @@
-// Falta arreglar el codigo de la lluvia 
-
-// ======================================
-//  LIBRERÍAS NECESARIAS
-// ======================================
+// ========================================================
+//  LIBRERÍAS
+// ========================================================
+#include <Servo.h>
 #include <Wire.h>
+#include <Adafruit_SSD1306.h>
 #include <Adafruit_BMP280.h>
+
 #include "WiFiS3.h"
 #include "ArduinoMqttClient.h"
 
-// ======================================
+// ========================================================
+//  CONFIGURACIÓN OLED + BMP280
+// ========================================================
+#define ANCHO 128
+#define ALTO  64
+
+Adafruit_SSD1306 oled(ANCHO, ALTO, &Wire);
+Adafruit_BMP280 bmp;
+
+// ========================================================
+//  PINES DE SENSORES
+//  (AJUSTADOS A TU CÓDIGO NUEVO)
+// ========================================================
+const int pinLluvia = A0;
+const int pinMQ2    = A1;
+const int pinLDR    = A2;
+
+// ========================================================
+//  SERVO
+// ========================================================
+Servo motor;
+const int pinServo = 9;
+int umbralLluvia = 500;
+
+// ========================================================
+//  BUZZERS
+// ========================================================
+const int buzzerGas = 8;   // Activo
+const int buzzerLuz = 6;   // Pasivo para melodía
+const int UMBRAL_LUZ = 800;
+
+// ========================================================
+//  VARS MQ2
+// ========================================================
+int valorBaseMQ2 = 0;
+int margen = 20;
+
+// ========================================================
 //  WIFI + MQTT CONFIG
-// ======================================
+// ========================================================
 char ssid[] = "Tec-IoT";
 char pass[] = "spotless.magnetic.bridge";
 
@@ -21,68 +59,84 @@ const char broker[] = "test.mosquitto.org";
 int port = 1883;
 const char topic[] = "umisumi/test/message";
 
-// ======================================
-//  BMP280
-// ======================================
-Adafruit_BMP280 bmp;
-float tempC = 0.0;
-float pres_hPa = 0.0;
+// ========================================================
+//  NOTAS PARA LA MELODÍA GREAT FAIRY'S FOUNTAIN
+// ========================================================
+#define NOTE_C5  523
+#define NOTE_D5  587
+#define NOTE_E5  659
+#define NOTE_F5  698
+#define NOTE_G5  784
+#define NOTE_A5  880
+#define NOTE_B5  988
 
-// ======================================
-//  SENSOR DE HUMEDAD (HW-028)
-// ======================================
-#define rainAnalog A1
-#define rainDigital 3
+int melodyGF[] = {
+  NOTE_A5, NOTE_E5, NOTE_F5, NOTE_E5, NOTE_A5,
+  NOTE_A5, NOTE_E5, NOTE_F5, NOTE_E5, NOTE_A5,
+  NOTE_B5, NOTE_F5, NOTE_G5, NOTE_F5, NOTE_B5,
+  NOTE_B5, NOTE_F5, NOTE_G5, NOTE_F5, NOTE_B5
+};
 
-int rainValue = 0;
-float rainVoltage = 0.0;
-int rainPercent = 0;
+int durationGF[] = {
+  350, 350, 350, 350, 650,
+  350, 350, 350, 350, 650,
+  350, 350, 350, 350, 650,
+  350, 350, 350, 350, 650
+};
 
-// ======================================
-//  FOTORESISTENCIA (LDR)
-// ======================================
-#define fotoRes A0
-int lightValue = 0;
-int lightPercent = 0;
-int lecturaOscuro = 200;
-int lecturaLuzMax = 15000;  // ajústalo si quieres
+int notesGF = sizeof(melodyGF) / sizeof(melodyGF[0]);
 
-// ======================================
-//  SENSOR DE GAS (MQ-x) + BUZZER
-// ======================================
-#define gasPin A2
-#define gasBuzzer 4
-int gasValue = 0;
-
-// ======================================
+// ========================================================
 //  PROTOTIPO FUNCIÓN MQTT
-// ======================================
+// ========================================================
 void enviarJSON(const char* type, float value);
 
-// ======================================
+// ========================================================
 //  SETUP
-// ======================================
+// ========================================================
 void setup() {
   Serial.begin(115200);
-  while (!Serial) {;}
 
-  Wire.begin();
-  analogReadResolution(14);   // 0–16383
+  // Servo
+  motor.attach(pinServo);
+  motor.write(90);
 
-  pinMode(rainDigital, INPUT);
-  pinMode(gasPin, INPUT);
-  pinMode(gasBuzzer, OUTPUT);
+  // Pines buzzers
+  pinMode(buzzerGas, OUTPUT);
+  pinMode(buzzerLuz, OUTPUT);
 
-  // ---- BMP280 ----
-  Serial.println(F("Iniciando BMP280..."));
-  if (!bmp.begin(0x76)) {
-    Serial.println(F("No se encontro BMP280 en 0x76, probando 0x77..."));
-    if (!bmp.begin(0x77)) {
-      Serial.println(F("Error: no se pudo encontrar BMP280 :("));
-      while (1) { delay(100); }
-    }
+  // -----------------------------------------
+  // Calibración MQ2
+  // -----------------------------------------
+  Serial.println("Calibrando sensor MQ2...");
+  long suma = 0;
+  for (int i = 0; i < 20; i++) {
+    suma += analogRead(pinMQ2);
+    delay(100);
   }
-  Serial.println(F("BMP280 OK!"));
+  valorBaseMQ2 = suma / 20;
+  Serial.print("Valor base gas: ");
+  Serial.println(valorBaseMQ2);
+
+  // -----------------------------------------
+  // OLED
+  // -----------------------------------------
+  if (!oled.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println("Error OLED");
+    while (1);
+  }
+  oled.setRotation(3);
+  oled.clearDisplay();
+
+  // -----------------------------------------
+  // BMP280
+  // -----------------------------------------
+  if (!bmp.begin(0x76)) {
+    Serial.println("Error BMP280");
+    while (1);
+  }
+
+  Serial.println("Iniciando WiFi...");
 
   // ---------------------------------
   // WiFi
@@ -135,11 +189,29 @@ void setup() {
   }
 
   Serial.println("✅ MQTT conectado!");
+  Serial.println("Sistema listo.\n");
 }
 
-// ======================================
+// ========================================================
+//  REPRODUCIR GREAT FAIRY'S FOUNTAIN THEME
+// ========================================================
+void reproducirGreatFairy() {
+
+  Serial.println(">>> Reproduciendo Great Fairy's Fountain (Zelda)");
+
+  for (int i = 0; i < notesGF; i++) {
+    tone(buzzerLuz, melodyGF[i]);
+    delay(durationGF[i]);
+    noTone(buzzerLuz);
+    delay(40);
+  }
+
+  delay(3000);  // Pausa entre repeticiones
+}
+
+// ========================================================
 //  FUNCIÓN PARA ENVIAR JSON POR MQTT
-// ======================================
+// ========================================================
 void enviarJSON(const char* type, float value) {
   mqttClient.beginMessage(topic);
   mqttClient.print("{\"type\":\"");
@@ -150,73 +222,103 @@ void enviarJSON(const char* type, float value) {
   mqttClient.endMessage();
 }
 
-// ======================================
-//  LOOP PRINCIPAL
-// ======================================
+// ========================================================
+//  LOOP
+// ========================================================
 void loop() {
   // Mantener viva la conexión MQTT
   mqttClient.poll();
 
-  // ======================
-  // GAS
-  // ======================
-  gasValue = analogRead(gasPin);
+  // ======================================================
+  // SENSOR DE LLUVIA + PORCENTAJE + SERVO
+  // ======================================================
+  int valorLluvia = analogRead(pinLluvia);
 
-  if (gasValue > 70) {
-    digitalWrite(gasBuzzer, HIGH);
+  // Convertir a porcentaje de humedad
+  // 1023 (seco) -> 0 %, 0 (muy mojado) -> 100 %
+  int porcentajeLluvia = map(valorLluvia, 1023, 0, 0, 100);
+  porcentajeLluvia = porcentajeLluvia - 4;
+
+  // Control del servo
+  if (porcentajeLluvia > 6) {
+    motor.write(0);
   } else {
-    digitalWrite(gasBuzzer, LOW);
+    motor.write(90);
   }
 
-  enviarJSON("gas", gasValue);
+  // ======================================================
+  // SENSOR DE GAS + BUZZER ACTIVO
+  // ======================================================
+  int lecturaMQ2 = analogRead(pinMQ2);
+  bool gasDetectado = lecturaMQ2 > valorBaseMQ2 + margen;
 
-  // ======================
-  // HUMEDAD (sensor de lluvia HW-028)
-  // ======================
-  rainValue = analogRead(rainAnalog);
-  rainVoltage = (rainValue * 5.0) / 16384.0;
+  if (gasDetectado) {
+    digitalWrite(buzzerGas, HIGH);
+  } else {
+    digitalWrite(buzzerGas, LOW);
+  }
 
-  // AHORA: 0 (seco) -> 0 %, 16383 (muy mojado) -> 100 %
-  rainPercent = map(rainValue, 0, 16383, 0, 100);
-  rainPercent = constrain(rainPercent, 0, 100);
+  // ======================================================
+  // FOTORESISTENCIA
+  // ======================================================
+  int luzRaw = analogRead(pinLDR);
+  // También calculamos un porcentaje de luz para MQTT
+  // 0 (oscuro) -> 0 %, 1023 (muy iluminado) -> 100 %
+  int luzPercent = map(luzRaw, 0, 1023, 0, 100);
+  luzPercent = constrain(luzPercent, 0, 100);
 
-  enviarJSON("humedad", rainPercent);
+  // ======================================================
+  // BMP280 LECTURAS
+  // ======================================================
+  float temp = bmp.readTemperature();
+  float press = bmp.readPressure() / 100.0; // hPa
 
-  // ======================
-  // LUZ (LDR)
-  // ======================
-  lightValue = analogRead(fotoRes);
-  lightPercent = map(lightValue, lecturaOscuro, lecturaLuzMax, 0, 100);
-  lightPercent = constrain(lightPercent, 0, 100);
-  lightPercent = lightPercent - 30;
+  // ======================================================
+  // IMPRESIÓN EN OLED
+  // ======================================================
+  oled.clearDisplay();
+  oled.setTextColor(SSD1306_WHITE);
 
-  enviarJSON("luz", lightPercent);
+  oled.setCursor(25, 5);
+  oled.setTextSize(1);
+  oled.print(temp, 1);
+  oled.println(" C");
 
-  // ======================
-  // BMP280 (Temp + Presion)
-  // ======================
-  tempC = bmp.readTemperature();
-  pres_hPa = bmp.readPressure() / 100.0F;
+  oled.setCursor(10, 30);
+  oled.print(press, 0);
+  oled.println(" hPa");
 
-  enviarJSON("temperatura", tempC);
-  enviarJSON("presion", pres_hPa);
+  // Si quieres, puedes mostrar porcentaje de lluvia
+  oled.setCursor(0, 50);
+  oled.print("Rain: ");
+  oled.print(porcentajeLluvia);
+  oled.println("%");
 
-  // ======================
-  // DEBUG EN SERIE
-  // ======================
-  Serial.println("=====================================");
-  Serial.print("Gas raw: "); Serial.println(gasValue);
+  oled.display();
 
-  Serial.print("Rain raw: "); Serial.print(rainValue);
-  Serial.print("  | Rain V: "); Serial.print(rainVoltage, 3);
-  Serial.print(" V  | Rain %: "); Serial.println(rainPercent);
+  // ======================================================
+  // MONITOR SERIAL
+  // ======================================================
+  Serial.println("===== LECTURAS DEL SISTEMA =====");
+  Serial.print("Temperatura: "); Serial.print(temp); Serial.println(" C");
+  Serial.print("Presion: "); Serial.print(press); Serial.println(" hPa");
+  Serial.print("Lluvia (A0): "); Serial.print(porcentajeLluvia); Serial.println("%");
+  Serial.print("Luz raw (A2): "); Serial.println(luzRaw);
+  Serial.print("Luz %: "); Serial.println(luzPercent);
+  Serial.print("Gas MQ2 (A1): "); Serial.print(lecturaMQ2);
+  Serial.print(" | Base: "); Serial.print(valorBaseMQ2);
+  Serial.print(" | Detectado: ");
+  Serial.println(gasDetectado ? "SI" : "NO");
+  Serial.println("================================\n");
 
-  Serial.print("Luz raw: "); Serial.print(lightValue);
-  Serial.print("  | Luz %: "); Serial.println(lightPercent);
+  // ======================================================
+  // ENVÍO POR MQTT (MISMO FORMATO QUE TU CÓDIGO VIEJO)
+  // ======================================================
+  enviarJSON("gas", lecturaMQ2);
+  enviarJSON("humedad", porcentajeLluvia);
+  enviarJSON("luz", luzPercent);
+  enviarJSON("temperatura", temp);
+  enviarJSON("presion", press);
 
-  Serial.print("Temp: "); Serial.print(tempC); Serial.println(" C");
-  Serial.print("Pres: "); Serial.print(pres_hPa); Serial.println(" hPa");
-  Serial.println("=====================================\n");
-
-  delay(1500);
+  delay(1000);
 }

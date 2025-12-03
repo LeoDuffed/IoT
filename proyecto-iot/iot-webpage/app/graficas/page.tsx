@@ -123,7 +123,8 @@ export default function GraficasPage() {
             label="Temperatura"
             unit="°C"
             data={tempData}
-            lineColor="#22c55e"
+            lineColor="#ef4444"
+            yDomain={[0,40]}
           />
 
           <SingleSensorChart
@@ -131,6 +132,7 @@ export default function GraficasPage() {
             unit="%"
             data={humData}
             lineColor="#0ea5e9"
+            yDomain={[0,20]}
           />
 
           <SingleSensorChart
@@ -138,6 +140,7 @@ export default function GraficasPage() {
             unit="hPa"
             data={presData}
             lineColor="#eab308"
+            yDomain={[0, 1000]}
           />
 
           <SingleSensorChart

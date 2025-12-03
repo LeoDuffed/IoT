@@ -23,6 +23,7 @@ export type SingleSensorChartProps = {
   unit: string
   data: ChartPoint[]
   lineColor: string
+  yDomain?: [number, number]
 }
 
 export default function SingleSensorChart({
@@ -30,6 +31,7 @@ export default function SingleSensorChart({
   unit,
   data,
   lineColor,
+  yDomain,
 }: SingleSensorChartProps) {
   return (
     <Card className="bg-slate-900/70 border-slate-800 shadow-lg">
@@ -51,7 +53,11 @@ export default function SingleSensorChart({
             <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
               <XAxis dataKey="time" tick={{ fontSize: 11, fill: "#9ca3af" }} />
-              <YAxis tick={{ fontSize: 12, fill: "#9ca3af" }} width={40} />
+              <YAxis
+                tick={{ fontSize: 12, fill: "#9ca3af" }}
+                width={40}
+                domain={yDomain}
+              />
 
               <Tooltip
                 contentStyle={{

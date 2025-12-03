@@ -347,7 +347,8 @@ export default function Home() {
                             />
                             <YAxis
                               tick={{ fontSize: 12, fill: "#9ca3af" }}
-                              width={40}
+                              width={40}  
+                              domain={[0,40]}
                             />
                             <Tooltip
                               contentStyle={{
@@ -361,10 +362,10 @@ export default function Home() {
                             <Line
                               type="monotone"
                               dataKey="value"
-                              stroke="#22c55e"
+                              stroke="#ef4444"
                               strokeWidth={2}
-                              dot={{ r: 3 }}
-                              activeDot={{ r: 5 }}
+                              dot={{ r: 2 }}
+                              activeDot={{ r: 3 }}
                             />
                           </LineChart>
                         </ResponsiveContainer>
@@ -408,6 +409,7 @@ export default function Home() {
                             <YAxis
                               tick={{ fontSize: 12, fill: "#9ca3af" }}
                               width={40}
+                              domain={[0,20]}
                             />
                             <Tooltip
                               contentStyle={{
@@ -421,7 +423,7 @@ export default function Home() {
                             <Line
                               type="monotone"
                               dataKey="value"
-                              stroke="#22c55e"
+                              stroke="#0ea5e9"
                               strokeWidth={2}
                               dot={{ r: 3 }}
                               activeDot={{ r: 5 }}
@@ -468,6 +470,7 @@ export default function Home() {
                             <YAxis
                               tick={{ fontSize: 12, fill: "#9ca3af" }}
                               width={40}
+                              domain={[0,1000]}
                             />
                             <Tooltip
                               contentStyle={{
@@ -481,7 +484,7 @@ export default function Home() {
                             <Line
                               type="monotone"
                               dataKey="value"
-                              stroke="#22c55e"
+                              stroke="#eab308"
                               strokeWidth={2}
                               dot={{ r: 3 }}
                               activeDot={{ r: 5 }}
@@ -541,7 +544,7 @@ export default function Home() {
                             <Line
                               type="monotone"
                               dataKey="value"
-                              stroke="#22c55e"
+                              stroke="#a855f7"
                               strokeWidth={2}
                               dot={{ r: 3 }}
                               activeDot={{ r: 5 }}
@@ -601,7 +604,7 @@ export default function Home() {
                             <Line
                               type="monotone"
                               dataKey="value"
-                              stroke="#22c55e"
+                              stroke="#f97316"
                               strokeWidth={2}
                               dot={{ r: 3 }}
                               activeDot={{ r: 5 }}

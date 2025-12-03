@@ -1,4 +1,4 @@
-#!/Users/duffed/Documents/github/IoT/proyecto-iot/iot-backend/.venv/bin/python3
+#!/Users/duffed/Documents/github/IoT/iot-backend/.venv/bin/python
 import sys
 from websockets.cli import main
 if __name__ == '__main__':

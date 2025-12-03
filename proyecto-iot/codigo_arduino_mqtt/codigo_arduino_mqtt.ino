@@ -36,15 +36,16 @@ int umbralLluvia = 500;
 // ========================================================
 //  BUZZERS
 // ========================================================
+unsigned long tiempoInicio;
+const unsigned long TIEMPO_CALENTAMIENTO_MQ2 = 30000; // 30 segundos 
 const int buzzerGas = 8;   // Activo
-const int buzzerLuz = 6;   // Pasivo para melodía
 const int UMBRAL_LUZ = 800;
 
 // ========================================================
 //  VARS MQ2
 // ========================================================
 int valorBaseMQ2 = 0;
-int margen = 20;
+int margen = 25;
 
 // ========================================================
 //  WIFI + MQTT CONFIG
@@ -103,7 +104,6 @@ void setup() {
 
   // Pines buzzers
   pinMode(buzzerGas, OUTPUT);
-  pinMode(buzzerLuz, OUTPUT);
 
   // -----------------------------------------
   // Calibración MQ2
@@ -190,23 +190,7 @@ void setup() {
 
   Serial.println("✅ MQTT conectado!");
   Serial.println("Sistema listo.\n");
-}
-
-// ========================================================
-//  REPRODUCIR GREAT FAIRY'S FOUNTAIN THEME
-// ========================================================
-void reproducirGreatFairy() {
-
-  Serial.println(">>> Reproduciendo Great Fairy's Fountain (Zelda)");
-
-  for (int i = 0; i < notesGF; i++) {
-    tone(buzzerLuz, melodyGF[i]);
-    delay(durationGF[i]);
-    noTone(buzzerLuz);
-    delay(40);
-  }
-
-  delay(3000);  // Pausa entre repeticiones
+  tiempoInicio = millis();
 }
 
 // ========================================================
@@ -237,10 +221,9 @@ void loop() {
   // Convertir a porcentaje de humedad
   // 1023 (seco) -> 0 %, 0 (muy mojado) -> 100 %
   int porcentajeLluvia = map(valorLluvia, 1023, 0, 0, 100);
-  porcentajeLluvia = porcentajeLluvia - 4;
 
   // Control del servo
-  if (porcentajeLluvia > 6) {
+  if (porcentajeLluvia > 10) {
     motor.write(0);
   } else {
     motor.write(90);
@@ -250,13 +233,13 @@ void loop() {
   // SENSOR DE GAS + BUZZER ACTIVO
   // ======================================================
   int lecturaMQ2 = analogRead(pinMQ2);
-  bool gasDetectado = lecturaMQ2 > valorBaseMQ2 + margen;
+  bool gasDetectado = false;
 
-  if (gasDetectado) {
-    digitalWrite(buzzerGas, HIGH);
-  } else {
-    digitalWrite(buzzerGas, LOW);
+  if (millis() - tiempoInicio > TIEMPO_CALENTAMIENTO_MQ2) {
+    gasDetectado = lecturaMQ2 > valorBaseMQ2 + margen;
   }
+
+  digitalWrite(buzzerGas, gasDetectado ? HIGH : LOW);
 
   // ======================================================
   // FOTORESISTENCIA
